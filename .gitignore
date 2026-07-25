@@ -1,1 +1,10 @@
 .DS_Store
+
+# Capacitor / iOS wrapper (see CLAUDE.md)
+node_modules/
+ios/App/Pods/
+ios/App/build/
+ios/App/DerivedData/
+ios/App/xcuserdata/
+ios/**/.build/
+ios/**/*.xcuserstate

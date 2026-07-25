@@ -1,0 +1,153 @@
+  :root{
+    --ink:#0D1014;--panel:#161B22;--panel-2:#1E242D;--line:#2C3440;
+    --bone:#ECE6DA;--mute:#8A93A0;--pick:#FFD60A;
+    --t1:#F2913C;--t2:#63BF8E;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--ink);color:var(--bone);font-family:Tajawal,system-ui,sans-serif;min-height:100vh}
+  .screen{display:none}.screen.on{display:block}
+
+  /* ---------- home ---------- */
+  .home{min-height:100vh;display:grid;place-items:center;padding:24px;
+        background:radial-gradient(120% 80% at 50% -10%, #1A222C 0%, var(--ink) 60%)}
+  .home-in{width:100%;max-width:560px}
+  .brand{text-align:center;margin-bottom:26px}
+  .hexmark{width:64px;height:64px;margin:0 auto 14px;display:block}
+  .brand h1{margin:0;font:900 clamp(28px,5vw,44px) Tajawal;letter-spacing:-.01em;
+            background:linear-gradient(100deg,var(--t1),var(--t2));-webkit-background-clip:text;background-clip:text;color:transparent;caret-color:var(--bone)}
+  .brand h1[contenteditable]:focus{outline:0;border-bottom:2px dashed var(--line)}
+  .brand p{margin:8px 0 0;font:500 13px Tajawal;color:var(--mute)}
+
+  .start{width:100%;border:0;border-radius:14px;padding:18px;margin-bottom:18px;cursor:pointer;
+         font:900 clamp(16px,2vw,20px) Tajawal;color:#101317;
+         background:linear-gradient(100deg,var(--t1),var(--t2))}
+  .start:active{transform:translateY(1px)}
+
+  .row{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px 16px;margin-bottom:10px;
+       display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap}
+  .row>span{font:700 14px Tajawal}
+  .seg{display:flex;background:var(--panel-2);border:1px solid var(--line);border-radius:10px;padding:3px;gap:3px}
+  .seg button{border:0;background:none;color:var(--mute);font:700 13px Tajawal;padding:7px 14px;border-radius:8px;cursor:pointer}
+  .seg button.on{background:var(--bone);color:#12161B}
+  .swatches{display:flex;gap:7px}
+  .sw{width:26px;height:26px;border-radius:8px;border:2px solid transparent;cursor:pointer;padding:0}
+  .sw.on{border-color:var(--bone)}
+  .teamline{display:flex;align-items:center;gap:10px}
+  .dot{width:12px;height:12px;border-radius:50%}
+  .teamName{width:150px;background:var(--panel-2);border:1px solid var(--line);border-radius:8px;
+            padding:6px 10px;font:700 13px Tajawal;color:var(--bone)}
+  .teamName::placeholder{color:var(--mute)}
+  .hint{font:500 11px Tajawal;color:var(--mute);flex-basis:100%}
+  .bottomRow{margin-bottom:0}
+  html[dir=ltr] .bottomRow{flex-direction:row-reverse}
+  .qbBox{border:1px dashed var(--line);background:var(--panel-2);color:var(--mute);border-radius:10px;
+         padding:10px 16px;font:700 13px Tajawal;cursor:pointer;transition:border-color .15s,color .15s}
+  .qbBox:hover{color:var(--bone);border-color:var(--mute)}
+
+  /* ---------- game ---------- */
+  .wrap{display:grid;grid-template-columns:clamp(150px,18vw,260px) 1fr;gap:clamp(10px,1.6vw,22px);padding:clamp(10px,1.6vw,22px);max-width:1500px;margin:0 auto;align-items:start}
+  html[dir=ltr] .wrap{grid-template-columns:1fr clamp(150px,18vw,260px)}
+  html[dir=ltr] .panel{order:2}
+  .stage{display:flex;flex-direction:column;gap:10px}
+  .boardWrap{position:relative;width:min(100%,calc(min(93vh,940px) * 611.37 / 532));margin-left:auto;margin-right:0}
+  .board{background:#fff;border-radius:16px;overflow:hidden;border:1px solid var(--line)}
+  .board svg{display:block;width:100%;height:auto}
+  .bar{display:flex;gap:8px}
+  .ghost{flex:1;background:none;border:1px solid var(--line);color:var(--mute);border-radius:10px;padding:clamp(7px,.8vw,11px);font:600 clamp(10px,.9vw,13px) Tajawal;cursor:pointer}
+  .ghost:hover{color:var(--bone);border-color:var(--mute)}
+  .ghost:disabled{opacity:.35;cursor:not-allowed;pointer-events:none}
+  .overlay{position:absolute;inset:0;display:none;place-items:center;background:rgba(8,10,13,.74);border-radius:16px;padding:20px}
+  .overlay.show{display:grid}
+  #qbOverlay{position:fixed;border-radius:0}
+  .card{background:var(--panel);border:1px solid var(--line);border-top:5px solid var(--c,var(--t1));border-radius:16px;padding:clamp(18px,2.4vw,32px);text-align:center;max-width:460px;width:100%}
+  .card .kicker{font:600 clamp(10px,.9vw,13px) Tajawal;color:var(--mute);letter-spacing:.04em}
+  .card h2{margin:8px 0 6px;font:900 clamp(20px,2.4vw,34px) Tajawal;color:var(--c);
+           overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .card p{margin:0 0 18px;font:500 clamp(11px,1vw,15px) Tajawal;color:var(--mute)}
+  .acts{display:flex;gap:10px}
+  .solid{flex:1;border:0;border-radius:11px;padding:clamp(9px,1vw,13px);font:700 clamp(11px,1vw,15px) Tajawal;color:#121212;background:var(--c);cursor:pointer}
+
+  .panel{display:flex;flex-direction:column;gap:clamp(8px,1vw,14px)}
+  .sideTitle{margin:0;text-align:center;font:900 clamp(22px,2.6vw,36px) Tajawal;letter-spacing:-.01em;
+             overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0;
+             background:linear-gradient(100deg,var(--t1),var(--t2));-webkit-background-clip:text;background-clip:text;color:transparent}
+  .chip{align-self:flex-start;font:600 clamp(10px,.85vw,13px) Tajawal;color:var(--mute);background:var(--panel);border:1px solid var(--line);border-radius:999px;padding:5px 12px}
+  .chip b{color:var(--bone);font-family:Rajdhani;font-size:clamp(12px,1.1vw,16px);margin-inline-start:6px}
+  .team{position:relative;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:clamp(10px,1.2vw,18px);display:flex;align-items:center;justify-content:space-between;gap:8px;overflow:hidden;transition:border-color .18s,background .18s}
+  .team::before{content:"";position:absolute;inset-block:0;inset-inline-start:0;width:5px;background:var(--c);opacity:.45}
+  .team.on{background:var(--panel-2);border-color:var(--c)}
+  .team.on::before{opacity:1}
+  .team h3{margin:0;font:700 clamp(12px,1.15vw,17px) Tajawal;flex:1;min-width:0;
+           overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .score{flex:none;font-family:Rajdhani;font-weight:700;font-size:clamp(30px,3.6vw,54px);line-height:.9;color:var(--c);font-variant-numeric:tabular-nums}
+  .now{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:clamp(10px,1.1vw,16px);display:flex;align-items:center;gap:clamp(8px,1vw,14px)}
+  .tile{width:clamp(44px,5vw,74px);height:clamp(50px,5.6vw,84px);flex:none;display:grid;place-items:center;padding-top:8px;border-radius:12px;background:var(--panel-2);border:1px dashed var(--line);font:900 clamp(24px,2.6vw,40px) Tajawal;color:var(--mute)}
+  .tile.live{background:var(--pick);border:1px solid #C9A700;color:#161B22}
+  .btns{display:flex;flex-direction:column;gap:8px}
+  .btn{flex:1;min-width:0;min-height:clamp(30px,3vw,38px);border:0;border-radius:10px;padding:clamp(7px,.8vw,11px) 6px;font:700 clamp(11px,1vw,14px) Tajawal;color:#121212;cursor:pointer;opacity:.35;pointer-events:none;transition:opacity .18s;
+       overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .btn.live{opacity:1;pointer-events:auto}
+  .log{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:clamp(10px,1.1vw,16px)}
+  .log header{display:flex;align-items:center;justify-content:center;margin-bottom:10px}
+  .tally{font-family:Rajdhani;font-weight:700;font-size:clamp(36px,4.2vw,58px);font-variant-numeric:tabular-nums}
+  .tally .x{color:var(--line);margin:0 14px}
+  .log ol{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px;max-height:190px;overflow:auto}
+  .log li{display:flex;align-items:center;gap:8px;font:500 clamp(10px,.9vw,13px) Tajawal;color:var(--mute);border-top:1px solid var(--line);padding-top:6px}
+  .log li:first-child{border-top:0;padding-top:0}
+  .log li i{width:9px;height:9px;border-radius:50%;flex:none}
+  .log li b{color:var(--bone);margin-inline-start:auto}
+  polygon.cell{cursor:pointer;transition:fill .15s}
+  text.ltr{font:700 46px Tajawal;pointer-events:none;user-select:none}
+  :focus-visible{outline:2px solid var(--pick);outline-offset:2px}
+
+  /* ---------- tournament ---------- */
+  .tourBtn{width:100%;border:1px solid var(--line);border-radius:14px;padding:14px;margin-bottom:18px;
+           cursor:pointer;background:var(--panel);color:var(--bone);font:700 clamp(14px,1.6vw,17px) Tajawal;text-align:center}
+  .tourBtn:hover{border-color:var(--mute);background:var(--panel-2)}
+  .comingSoonRow{width:100%;border:1px dashed var(--line);border-radius:14px;padding:14px;margin-bottom:18px;
+                 cursor:pointer;background:var(--panel-2);color:var(--mute);font:700 clamp(14px,1.6vw,17px) Tajawal;text-align:center;
+                 transition:border-color .15s,color .15s}
+  .comingSoonRow:hover{border-color:var(--mute);color:var(--bone)}
+  .tour-in{max-width:640px}
+  .tourStep{display:flex;flex-direction:column;gap:16px}
+  .tourSizeSeg{justify-content:center}
+  .tourNav{display:flex;gap:10px;margin-top:8px}
+  .tourNav .ghost{flex:1}
+  .tourNavNext{flex:1;border:0;border-radius:11px;padding:12px;font:700 14px Tajawal;color:#101317;
+               cursor:pointer;background:linear-gradient(100deg,var(--t1),var(--t2))}
+  .tourNavNext:disabled{opacity:.4;cursor:not-allowed}
+
+  .tourTeams{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  @media (max-width:480px){.tourTeams{grid-template-columns:1fr}}
+  .tourTeamRow{display:flex;align-items:center;gap:8px;background:var(--panel);border:1px solid var(--line);
+               border-radius:10px;padding:8px 10px}
+  .tourNameInput{flex:1;min-width:0;background:var(--panel-2);border:1px solid var(--line);border-radius:8px;
+                 padding:6px 8px;font:700 13px Tajawal;color:var(--bone)}
+  .tourSwatchToggle{width:26px;height:26px;border-radius:8px;border:2px solid var(--bone);cursor:pointer;flex:none;padding:0}
+  .tourNameBig{width:100%;text-align:center;padding:14px;font:700 clamp(16px,2vw,22px) Tajawal}
+  .tourColorPicker{display:grid;grid-template-columns:repeat(8,1fr);gap:8px;background:var(--panel);
+                   border:1px solid var(--line);border-radius:12px;padding:10px}
+  .tourColorPicker .sw{width:auto;aspect-ratio:1;height:auto}
+  .tourColorPicker[hidden]{display:none}
+
+  .tourNameTag{margin:0 0 4px;text-align:center;font:600 13px Tajawal;color:var(--mute)}
+
+  .tourBracket{display:flex;justify-content:center;gap:18px;overflow-x:auto;padding-bottom:8px}
+  .tourReveal{animation:tourReveal .45s ease both}
+  @keyframes tourReveal{from{opacity:0;transform:translateY(12px) scale(.94)}to{opacity:1;transform:translateY(0) scale(1)}}
+  .tourRound{display:flex;flex-direction:column;justify-content:space-around;gap:12px;min-width:150px}
+  .tourFinalCol{justify-content:center;min-width:170px}
+  .tourFinalCol .tourMatch{border-color:var(--pick);box-shadow:0 0 0 1px var(--pick)}
+  .tourRoundLabel{font:700 12px Tajawal;color:var(--mute);text-align:center;margin-bottom:4px}
+  .tourMatch{display:flex;flex-direction:column;gap:6px;background:var(--panel);border:1px solid var(--line);
+             border-radius:10px;padding:8px}
+  .tourMatchTeam{font:700 12px Tajawal;padding:6px 8px;border-radius:6px;background:var(--panel-2);
+                 border-inline-start:3px solid var(--c);color:var(--bone);overflow:hidden;
+                 text-overflow:ellipsis;white-space:nowrap}
+  .tourMatchTeam.winner{background:var(--c);color:#101317}
+
+  .tourChampionBanner{text-align:center;padding:22px;border-radius:14px;background:var(--panel);
+                      border:1px solid var(--pick)}
+  .tourChampionKicker{font:600 12px Tajawal;color:var(--mute);letter-spacing:.04em;margin-bottom:6px}
+  .tourChampionName{font:900 clamp(22px,2.8vw,34px) Tajawal;color:var(--c);
+                    overflow:hidden;text-overflow:ellipsis;white-space:nowrap}

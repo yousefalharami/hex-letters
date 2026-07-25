@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Hex Letters</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;900&family=Rajdhani:wght@500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#0D1014">
+<link rel="icon" href="icons/icon-512.png">
+<link rel="apple-touch-icon" href="icons/icon-512.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="خلية الحروف">
+</head>
+<body>
+
+<!-- ================= HOME ================= -->
+<section class="screen on" id="scHome"><div class="home"><div class="home-in">
+  <div class="brand">
+    <svg class="hexmark" viewBox="0 0 100 100"><polygon points="50,6 88,28 88,72 50,94 12,72 12,28" fill="none" stroke="var(--t1)" stroke-width="7"/><polygon points="50,26 71,38 71,62 50,74 29,62 29,38" fill="var(--t2)"/></svg>
+    <h1 id="gameTitle" contenteditable="true" spellcheck="false">خلية الحروف</h1>
+    <p id="tagline"></p>
+  </div>
+
+  <button class="start" id="startBtn"></button>
+  <button class="tourBtn" id="tourBtn"></button>
+  <button class="comingSoonRow" id="onlineBtn"></button>
+
+  <div class="row">
+    <span id="lblColors"></span>
+    <div style="display:flex;gap:18px;flex-wrap:wrap">
+      <div class="teamline"><i class="dot" style="background:var(--t1)"></i><input class="teamName" id="name1" maxlength="20" autocomplete="off"><div class="swatches" id="sw1"></div></div>
+      <div class="teamline"><i class="dot" style="background:var(--t2)"></i><input class="teamName" id="name2" maxlength="20" autocomplete="off"><div class="swatches" id="sw2"></div></div>
+    </div>
+    <div class="hint" id="hintColors"></div>
+  </div>
+
+  <div class="row"><span id="lblRounds"></span>
+    <div class="seg" id="segRounds"><button data-v="1">1</button><button data-v="3">3</button><button data-v="5">5</button></div>
+  </div>
+
+  <div class="row"><span id="lblLetters"></span>
+    <div class="seg" id="segLetters"><button data-v="ar"></button><button data-v="en"></button><button data-v="mix"></button></div>
+  </div>
+
+  <div class="row bottomRow">
+    <div class="seg" id="segLang"><button data-v="ar">عربي</button><button data-v="en">EN</button></div>
+    <button class="qbBox" id="qbBtn"></button>
+  </div>
+</div></div>
+<div class="overlay" id="qbOverlay"><div class="card" id="qbCard" style="--c:var(--bone)">
+  <h2 id="qbCardTitle"></h2><p id="qbCardSub"></p>
+  <div class="acts"><button class="solid" id="qbClose"></button></div>
+</div></div>
+</section>
+
+<!-- ================= TOURNAMENT ================= -->
+<section class="screen" id="scTournament"><div class="home"><div class="home-in tour-in">
+  <div class="brand" style="margin-bottom:18px">
+    <p class="tourNameTag" id="tourNameTag"></p>
+    <h1 class="tourTitle" id="tourTitle"></h1>
+  </div>
+  <div id="tourBody"></div>
+</div></div></section>
+
+<!-- ================= GAME ================= -->
+<section class="screen" id="scGame"><div class="wrap">
+  <div class="panel">
+    <h2 class="sideTitle" id="sideTitle"></h2>
+    <span class="chip"><span id="cRound"></span> <b id="roundNo">1</b><span id="cOf"></span></span>
+    <div class="team on" id="t1" style="--c:var(--t1)"><h3 id="n1"></h3><div class="score" id="s1">0</div></div>
+    <div class="team" id="t2" style="--c:var(--t2)"><h3 id="n2"></h3><div class="score" id="s2">0</div></div>
+    <div class="now">
+      <div class="tile" id="tile">—</div>
+      <div style="flex:1">
+        <div class="btns">
+          <button class="btn" id="b1" style="background:var(--t1)"></button>
+          <button class="btn" id="b2" style="background:var(--t2)"></button>
+        </div>
+      </div>
+    </div>
+    <div class="log">
+      <header>
+        <div class="tally"><span id="w1" style="color:var(--t1)">0</span><span class="x">—</span><span id="w2" style="color:var(--t2)">0</span></div>
+      </header>
+      <ol id="hist"></ol>
+    </div>
+    <div class="bar">
+      <button class="ghost" id="undoBtn" disabled></button>
+      <button class="ghost" id="btnNew"></button>
+      <button class="ghost" id="btnExit"></button>
+    </div>
+  </div>
+
+  <div class="stage">
+    <div class="boardWrap">
+      <div class="board" id="board"></div>
+      <div class="overlay" id="overlay"><div class="card" id="winCard">
+        <div class="kicker" id="winKicker"></div>
+        <h2 id="winTitle"></h2><p id="winSub"></p>
+        <div class="acts"><button class="solid" id="againBtn"></button><button class="ghost" id="homeBtn"></button></div>
+      </div></div>
+    </div>
+  </div>
+</div></section>
+
+<script src="i18n.js"></script>
+<script src="board.js"></script>
+<script src="game.js"></script>
+<script src="tournament.js"></script>
+<script src="storage.js"></script>
+<script src="pwa.js"></script>
+</body>
+</html>

@@ -1,0 +1,22 @@
+{
+  "name": "hex-game",
+  "version": "1.0.0",
+  "description": "",
+  "main": "board.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "sync-web": "cp index.html styles.css i18n.js board.js game.js tournament.js storage.js pwa.js manifest.json sw.js www/ && cp -r icons www/icons"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "@capacitor/cli": "^8.4.2",
+    "@capacitor/core": "^8.4.2",
+    "@capacitor/ios": "^8.4.2"
+  },
+  "devDependencies": {
+    "@capacitor/assets": "^3.0.5"
+  }
+}

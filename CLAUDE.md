@@ -192,6 +192,60 @@ service worker, layered on top of the static files above with no build step:
   precached on install. If you add a file the app loads at runtime, it has to go in
   `ASSETS` or offline sessions will fail to load it.
 
+## iOS App Store wrapper (Capacitor)
+
+A second, **additive** distribution path on top of everything above — wrapping the
+same static web app in a native iOS shell via [Capacitor](https://capacitorjs.com),
+for a real App Store listing. This does not change anything about the web app's own
+"no build step" philosophy: `index.html`/`styles.css`/`*.js` are still edited and
+tested exactly as before (`python3 -m http.server` + a browser). Capacitor is purely
+an outer wrapper with its own separate toolchain (npm, Xcode).
+
+- **`www/` is a deployable copy, not the source of truth.** The actual source files
+  live at the project root, same as always. `capacitor.config.json`'s `webDir` points
+  at `www/` (not `.`) specifically because pointing it at the project root would make
+  every `cap sync` recursively copy `node_modules/`, `.git/`, and — once it exists —
+  `ios/` *into itself*, growing without bound. Run `npm run sync-web` (copies the
+  actual web files + `icons/` into `www/`) before every `npx cap sync ios` whenever
+  the web app has changed — **don't edit files inside `www/` directly**, they get
+  overwritten by the next sync.
+- **`npx cap sync ios` after any web change that should reach the app**, in this
+  order: edit the real files → `npm run sync-web` → `npx cap sync ios`. Only syncing
+  copies `www/` into `ios/App/App/public/`; editing the root files alone does nothing
+  for the iOS build until both of those run.
+- **This Capacitor version (8.x) uses Swift Package Manager, not CocoaPods** — there's
+  no `Podfile`/`Pods/` (a local Swift package at `ios/App/CapApp-SPM/` handles it
+  instead), unlike most older Capacitor tutorials/docs which assume CocoaPods. Don't
+  add a `Podfile` or run `pod install` expecting it to matter unless a future plugin
+  specifically forces CocoaPods.
+- **App identity**: bundle ID `app.hexletters`, display name `"hex letters حروف"` —
+  both host-specified, independent of the Tamreen project's bundle ID
+  (`app.jointamreen`, which turned out not to share a clean prefix with this one).
+- **Icon/splash source**: `assets/icon.png` (1024×1024, no alpha channel — Apple
+  rejects App Store icons that have one) and `assets/splash.png`, both rasterized from
+  the same `icons/icon.svg` used for the PWA icons (one visual identity across web,
+  PWA, and native). `icons/icon-1024.png` is the same image, kept in `icons/` since
+  that's the icon's canonical home; `assets/icon.png` is `capacitor-assets`'s expected
+  input filename/location, kept as a separate copy for that tool's convention rather
+  than a symlink. Regenerate via
+  `npx capacitor-assets generate --ios` after replacing either source image — this
+  writes directly into `ios/App/App/Assets.xcassets/`.
+- **What's committed vs generated**: `ios/` itself (the Xcode project, workspace,
+  `Assets.xcassets`, `CapApp-SPM/Package.swift`) is committed — that's the actual
+  project configuration. `node_modules/`, any `ios/App/Pods/` (unused here, but kept
+  ignored defensively), Xcode's `build/`/`DerivedData/`/`xcuserdata/`, and SPM's
+  `.build/` are gitignored — all regenerable from `npm install` + `npx cap sync`.
+- **Everything past `npx cap open ios` requires an interactive Apple ID session in
+  Xcode** and can't be scripted from here: selecting the Apple Developer Team for code
+  signing, building to a simulator/device, archiving, and uploading to App Store
+  Connect. The service-worker/manifest PWA machinery (`sw.js`, `pwa.js`,
+  `manifest.json`) is inert inside Capacitor's `WKWebView` — harmless to leave in
+  `www/`, just does nothing there.
+- **Open item, not yet resolved**: Apple requires a privacy policy URL for every App
+  Store listing, even though this app collects no data and has no backend. Needs a
+  simple hosted "we collect nothing" page before actual submission — out of scope
+  until asked.
+
 ## Persistence (`storage.js`)
 
 A small localStorage-backed module, loaded after `game.js`/`tournament.js` and before
