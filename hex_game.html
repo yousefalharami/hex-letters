@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Hex Letters</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;900&family=Rajdhani:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#0D1014;--panel:#161B22;--panel-2:#1E242D;--line:#2C3440;
+    --bone:#ECE6DA;--mute:#8A93A0;--pick:#FFD60A;
+    --t1:#F2913C;--t2:#63BF8E;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--ink);color:var(--bone);font-family:Tajawal,system-ui,sans-serif;min-height:100vh}
+  .screen{display:none}.screen.on{display:block}
+
+  /* ---------- home ---------- */
+  .home{min-height:100vh;display:grid;place-items:center;padding:24px;
+        background:radial-gradient(120% 80% at 50% -10%, #1A222C 0%, var(--ink) 60%)}
+  .home-in{width:100%;max-width:560px}
+  .brand{text-align:center;margin-bottom:26px}
+  .hexmark{width:64px;height:64px;margin:0 auto 14px;display:block}
+  .brand h1{margin:0;font:900 clamp(28px,5vw,44px) Tajawal;letter-spacing:-.01em}
+  .brand h1[contenteditable]:focus{outline:0;border-bottom:2px dashed var(--line)}
+  .brand p{margin:8px 0 0;font:500 13px Tajawal;color:var(--mute)}
+
+  .start{width:100%;border:0;border-radius:14px;padding:18px;margin-bottom:18px;cursor:pointer;
+         font:900 clamp(16px,2vw,20px) Tajawal;color:#101317;
+         background:linear-gradient(100deg,var(--t1),var(--t2))}
+  .start:active{transform:translateY(1px)}
+
+  .row{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px 16px;margin-bottom:10px;
+       display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap}
+  .row>span{font:700 14px Tajawal}
+  .seg{display:flex;background:var(--panel-2);border:1px solid var(--line);border-radius:10px;padding:3px;gap:3px}
+  .seg button{border:0;background:none;color:var(--mute);font:700 13px Tajawal;padding:7px 14px;border-radius:8px;cursor:pointer}
+  .seg button.on{background:var(--bone);color:#12161B}
+  .swatches{display:flex;gap:7px}
+  .sw{width:26px;height:26px;border-radius:8px;border:2px solid transparent;cursor:pointer;padding:0}
+  .sw.on{border-color:var(--bone)}
+  .teamline{display:flex;align-items:center;gap:10px}
+  .dot{width:12px;height:12px;border-radius:50%}
+  .hint{font:500 11px Tajawal;color:var(--mute);flex-basis:100%}
+
+  /* ---------- game ---------- */
+  .wrap{display:grid;grid-template-columns:clamp(190px,25vw,340px) 1fr;gap:clamp(10px,1.6vw,22px);padding:clamp(10px,1.6vw,22px);max-width:1500px;margin:0 auto;align-items:start}
+  html[dir=ltr] .wrap{grid-template-columns:1fr clamp(190px,25vw,340px)}
+  html[dir=ltr] .panel{order:2}
+  .stage{position:relative;display:flex;flex-direction:column;gap:10px}
+  .board{background:#fff;border-radius:16px;overflow:hidden;border:1px solid var(--line)}
+  .board svg{display:block;width:100%;height:auto}
+  .bar{display:flex;gap:8px}
+  .ghost{flex:1;background:none;border:1px solid var(--line);color:var(--mute);border-radius:10px;padding:clamp(7px,.8vw,11px);font:600 clamp(10px,.9vw,13px) Tajawal;cursor:pointer}
+  .ghost:hover{color:var(--bone);border-color:var(--mute)}
+  .overlay{position:absolute;inset:0;display:none;place-items:center;background:rgba(8,10,13,.74);border-radius:16px;padding:20px}
+  .overlay.show{display:grid}
+  .card{background:var(--panel);border:1px solid var(--line);border-top:5px solid var(--c,var(--t1));border-radius:16px;padding:clamp(18px,2.4vw,32px);text-align:center;max-width:460px;width:100%}
+  .card .kicker{font:600 clamp(10px,.9vw,13px) Tajawal;color:var(--mute);letter-spacing:.04em}
+  .card h2{margin:8px 0 6px;font:900 clamp(20px,2.4vw,34px) Tajawal;color:var(--c)}
+  .card p{margin:0 0 18px;font:500 clamp(11px,1vw,15px) Tajawal;color:var(--mute)}
+  .acts{display:flex;gap:10px}
+  .solid{flex:1;border:0;border-radius:11px;padding:clamp(9px,1vw,13px);font:700 clamp(11px,1vw,15px) Tajawal;color:#121212;background:var(--c);cursor:pointer}
+
+  .panel{display:flex;flex-direction:column;gap:clamp(8px,1vw,14px)}
+  .chip{align-self:flex-start;font:600 clamp(10px,.85vw,13px) Tajawal;color:var(--mute);background:var(--panel);border:1px solid var(--line);border-radius:999px;padding:5px 12px}
+  .chip b{color:var(--bone);font-family:Rajdhani;font-size:clamp(12px,1.1vw,16px);margin-inline-start:6px}
+  .team{position:relative;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:clamp(10px,1.2vw,18px);display:flex;align-items:center;justify-content:space-between;gap:8px;overflow:hidden;transition:border-color .18s,background .18s}
+  .team::before{content:"";position:absolute;inset-block:0;inset-inline-start:0;width:5px;background:var(--c);opacity:.45}
+  .team.on{background:var(--panel-2);border-color:var(--c)}
+  .team.on::before{opacity:1}
+  .team h3{margin:0;font:700 clamp(12px,1.15vw,17px) Tajawal}
+  .score{font-family:Rajdhani;font-weight:700;font-size:clamp(30px,3.6vw,54px);line-height:.9;color:var(--c);font-variant-numeric:tabular-nums}
+  .now{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:clamp(10px,1.1vw,16px);display:flex;align-items:center;gap:clamp(8px,1vw,14px)}
+  .tile{width:clamp(44px,5vw,74px);height:clamp(50px,5.6vw,84px);flex:none;display:grid;place-items:center;border-radius:12px;background:var(--panel-2);border:1px dashed var(--line);font:900 clamp(24px,2.6vw,40px) Tajawal;color:var(--mute)}
+  .tile.live{background:var(--pick);border:1px solid #C9A700;color:#161B22}
+  .lbl{font:500 clamp(9px,.8vw,12px) Tajawal;color:var(--mute);margin-bottom:8px}
+  .btns{display:flex;gap:8px}
+  .btn{flex:1;border:0;border-radius:10px;padding:clamp(7px,.8vw,11px) 6px;font:700 clamp(11px,1vw,14px) Tajawal;color:#121212;cursor:pointer;opacity:.35;pointer-events:none;transition:opacity .18s}
+  .btn.live{opacity:1;pointer-events:auto}
+  .log{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:clamp(10px,1.1vw,16px)}
+  .log header{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+  .log h4{margin:0;font:700 clamp(11px,1vw,14px) Tajawal}
+  .tally{font-family:Rajdhani;font-weight:700;font-size:clamp(13px,1.2vw,18px)}
+  .tally .x{color:var(--line);margin:0 4px}
+  .log ol{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px;max-height:190px;overflow:auto}
+  .log li{display:flex;align-items:center;gap:8px;font:500 clamp(10px,.9vw,13px) Tajawal;color:var(--mute);border-top:1px solid var(--line);padding-top:6px}
+  .log li:first-child{border-top:0;padding-top:0}
+  .log li i{width:9px;height:9px;border-radius:50%;flex:none}
+  .log li b{color:var(--bone);margin-inline-start:auto}
+  polygon.cell{cursor:pointer;transition:fill .15s}
+  text.ltr{font:700 46px Tajawal;pointer-events:none;user-select:none}
+  :focus-visible{outline:2px solid var(--pick);outline-offset:2px}
+</style>
+</head>
+<body>
+
+<!-- ================= HOME ================= -->
+<section class="screen on" id="scHome"><div class="home"><div class="home-in">
+  <div class="brand">
+    <svg class="hexmark" viewBox="0 0 100 100"><polygon points="50,6 88,28 88,72 50,94 12,72 12,28" fill="none" stroke="var(--t1)" stroke-width="7"/><polygon points="50,26 71,38 71,62 50,74 29,62 29,38" fill="var(--t2)"/></svg>
+    <h1 id="gameTitle" contenteditable="true" spellcheck="false">خلية الحروف</h1>
+    <p id="tagline"></p>
+  </div>
+
+  <button class="start" id="startBtn"></button>
+
+  <div class="row">
+    <span id="lblColors"></span>
+    <div style="display:flex;gap:18px;flex-wrap:wrap">
+      <div class="teamline"><i class="dot" style="background:var(--t1)"></i><div class="swatches" id="sw1"></div></div>
+      <div class="teamline"><i class="dot" style="background:var(--t2)"></i><div class="swatches" id="sw2"></div></div>
+    </div>
+    <div class="hint" id="hintColors"></div>
+  </div>
+
+  <div class="row"><span id="lblRounds"></span>
+    <div class="seg" id="segRounds"><button data-v="1">1</button><button data-v="3">3</button><button data-v="5">5</button></div>
+  </div>
+
+  <div class="row"><span id="lblLetters"></span>
+    <div class="seg" id="segLetters"><button data-v="ar"></button><button data-v="en"></button><button data-v="mix"></button></div>
+  </div>
+
+  <div class="row"><span id="lblLang"></span>
+    <div class="seg" id="segLang"><button data-v="ar">عربي</button><button data-v="en">EN</button></div>
+  </div>
+</div></div></section>
+
+<!-- ================= GAME ================= -->
+<section class="screen" id="scGame"><div class="wrap">
+  <div class="panel">
+    <span class="chip"><span id="cRound"></span> <b id="roundNo">1</b><span id="cOf"></span></span>
+    <div class="team on" id="t1" style="--c:var(--t1)"><h3 id="n1"></h3><div class="score" id="s1">0</div></div>
+    <div class="team" id="t2" style="--c:var(--t2)"><h3 id="n2"></h3><div class="score" id="s2">0</div></div>
+    <div class="now">
+      <div class="tile" id="tile">—</div>
+      <div style="flex:1">
+        <div class="lbl" id="lbl"></div>
+        <div class="btns">
+          <button class="btn" id="b1" style="background:var(--t1)"></button>
+          <button class="btn" id="b2" style="background:var(--t2)"></button>
+        </div>
+      </div>
+    </div>
+    <div class="log">
+      <header><h4 id="lblLog"></h4>
+        <div class="tally"><span id="w1" style="color:var(--t1)">0</span><span class="x">—</span><span id="w2" style="color:var(--t2)">0</span></div>
+      </header>
+      <ol id="hist"></ol>
+    </div>
+  </div>
+
+  <div class="stage">
+    <div class="board" id="board"></div>
+    <div class="bar">
+      <button class="ghost" id="btnNew"></button>
+      <button class="ghost" id="btnExit"></button>
+    </div>
+    <div class="overlay" id="overlay"><div class="card" id="winCard">
+      <div class="kicker" id="winKicker"></div>
+      <h2 id="winTitle"></h2><p id="winSub"></p>
+      <div class="acts"><button class="solid" id="againBtn"></button><button class="ghost" id="homeBtn"></button></div>
+    </div></div>
+  </div>
+</div></section>
+
+<script>
+/* ---------------- config + i18n ---------------- */
+const PRESETS1=["#F2913C","#E0533D","#E8B23A","#C86BE0","#3D8BE0","#E24C6B"];
+const PRESETS2=["#63BF8E","#3FA9C9","#8FCB4A","#5E7CE2","#26A69A","#B0BEC5"];
+const cfg={t1:PRESETS1[0],t2:PRESETS2[0],rounds:3,letters:"ar",lang:"ar",
+           title:{ar:"خلية الحروف",en:"Letter Hive"}};
+const T={
+ ar:{tag:"صل بين طرفيك قبل خصمك",start:"ابدأ اللعبة",colors:"ألوان الفرق",rounds:"عدد الجولات",
+  letters:"الحروف",lang:"اللغة",ar:"عربي",en:"إنجليزي",mix:"مزيج",
+  hint:"الفريق الأول يصل بين الأعلى والأسفل، والثاني بين اليمين واليسار",
+  t1:"الفريق الأول",t2:"الفريق الثاني",round:"الجولة",of:" من ",pick:"اختر خلية من اللوحة",
+  who:"من أجاب أولاً؟",newR:"جولة جديدة",exit:"القائمة الرئيسية",log:"سجل الجولات",
+  roundOver:"انتهت الجولة",matchOver:"انتهت المباراة",
+  sub1:"وصل بين الحد الأعلى والحد الأسفل",sub2:"وصل بين الحد الأيمن والحد الأيسر",
+  champ:"فاز بالمباراة",next:"الجولة التالية",home:"القائمة الرئيسية"},
+ en:{tag:"Link your two sides before they link theirs",start:"Start Game",colors:"Team Colors",rounds:"Rounds",
+  letters:"Letters",lang:"Language",ar:"Arabic",en:"English",mix:"Mix",
+  hint:"Team 1 links top to bottom, Team 2 links left to right",
+  t1:"Team 1",t2:"Team 2",round:"Round",of:" of ",pick:"Pick a cell on the board",
+  who:"Who answered first?",newR:"New Round",exit:"Main Menu",log:"Round Log",
+  roundOver:"Round over",matchOver:"Match over",
+  sub1:"linked the top edge to the bottom edge",sub2:"linked the right edge to the left edge",
+  champ:"wins the match",next:"Next Round",home:"Main Menu"}};
+const L=()=>T[cfg.lang];
+const AR="ابتثجحخدذرزسشصضطظعغفقكلمنهوي".split("");
+const EN="ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
+
+/* ---------------- home wiring ---------------- */
+function swatchRow(el,list,key){
+  el.innerHTML=list.map(c=>`<button class="sw" data-c="${c}" style="background:${c}"></button>`).join("");
+  el.querySelectorAll('.sw').forEach(b=>b.onclick=()=>{cfg[key]=b.dataset.c;applyColors();paintSel();});
+}
+function paintSel(){
+  sw1.querySelectorAll('.sw').forEach(b=>b.classList.toggle('on',b.dataset.c===cfg.t1));
+  sw2.querySelectorAll('.sw').forEach(b=>b.classList.toggle('on',b.dataset.c===cfg.t2));
+  [['segRounds',String(cfg.rounds)],['segLetters',cfg.letters],['segLang',cfg.lang]].forEach(([id,v])=>
+    document.getElementById(id).querySelectorAll('button').forEach(b=>b.classList.toggle('on',b.dataset.v===v)));
+}
+function applyColors(){
+  document.documentElement.style.setProperty('--t1',cfg.t1);
+  document.documentElement.style.setProperty('--t2',cfg.t2);
+  if(state.letters.length) drawBoard(), sync();
+}
+function applyLang(){
+  const t=L();
+  document.documentElement.lang=cfg.lang;
+  document.documentElement.dir=cfg.lang==='ar'?'rtl':'ltr';
+  gameTitle.textContent=cfg.title[cfg.lang];
+  tagline.textContent=t.tag; startBtn.textContent=t.start;
+  lblColors.textContent=t.colors; hintColors.textContent=t.hint;
+  lblRounds.textContent=t.rounds; lblLetters.textContent=t.letters; lblLang.textContent=t.lang;
+  segLetters.querySelectorAll('button').forEach(b=>b.textContent=t[b.dataset.v]);
+  n1.textContent=t.t1; n2.textContent=t.t2; b1.textContent=t.t1; b2.textContent=t.t2;
+  cRound.textContent=t.round; cOf.textContent=t.of+cfg.rounds;
+  btnNew.textContent=t.newR; btnExit.textContent=t.exit;
+  againBtn.textContent=t.next; homeBtn.textContent=t.home; lblLog.textContent=t.log;
+  lbl.textContent=state.sel===null?t.pick:t.who;
+}
+swatchRow(sw1,PRESETS1,'t1'); swatchRow(sw2,PRESETS2,'t2');
+segRounds.onclick=e=>{if(e.target.dataset.v){cfg.rounds=+e.target.dataset.v;paintSel();applyLang();}};
+segLetters.onclick=e=>{if(e.target.dataset.v){cfg.letters=e.target.dataset.v;paintSel();}};
+segLang.onclick=e=>{if(e.target.dataset.v){cfg.lang=e.target.dataset.v;paintSel();applyLang();}};
+gameTitle.addEventListener('input',()=>cfg.title[cfg.lang]=gameTitle.textContent);
+startBtn.onclick=()=>{newMatch();scHome.classList.remove('on');scGame.classList.add('on');};
+
+/* ---------------- board ---------------- */
+const ROWS=5,COLS=5,s=52,w=Math.sqrt(3)*s,m=58,BW=5.5*w+2*m,BH=8*s+2*m;
+const state={owner:Array(25).fill(null),letters:[],sel:null,round:1,hist:[],done:false,over:false};
+const cx=(r,c)=>m+w/2+(r%2?w/2:0)+w*c, cy=r=>m+s+1.5*s*r;
+const vx=(r,c)=>{const X=cx(r,c),Y=cy(r);return[[X,Y-s],[X+w/2,Y-s/2],[X+w/2,Y+s/2],[X,Y+s],[X-w/2,Y+s/2],[X-w/2,Y-s/2]];};
+const K=p=>p.map(v=>Math.round(v*10)/10).join(",");
+function perimeter(){
+  const cnt={},pt={};
+  for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++){const v=vx(r,c);
+    for(let i=0;i<6;i++){const a=K(v[i]),b=K(v[(i+1)%6]);pt[a]=v[i];pt[b]=v[(i+1)%6];
+      const k=[a,b].sort().join("|");cnt[k]=(cnt[k]||0)+1;}}
+  const adj={};
+  Object.keys(cnt).filter(k=>cnt[k]===1).forEach(k=>{const[a,b]=k.split("|");
+    (adj[a]=adj[a]||[]).push(b);(adj[b]=adj[b]||[]).push(a);});
+  const A=K([m,m+s/2]),B=K([m+5*w,m+s/2]),C=K([m+5*w,m+7.5*s]),D=K([m,m+7.5*s]);
+  let cyc=[A],prev=A,cur=adj[A].reduce((x,y)=>pt[x][0]>pt[y][0]?x:y);
+  while(cur!==A){cyc.push(cur);const n=adj[cur].find(p=>p!==prev);prev=cur;cur=n;}
+  const arc=(p,q)=>{const i=cyc.indexOf(p),j=cyc.indexOf(q);
+    return(i<j?cyc.slice(i,j+1):cyc.slice(i).concat(cyc.slice(0,j+1))).map(k=>pt[k]);};
+  const ray=(p,dx,dy)=>{const P=pt[p],t=dx>0?(BW-P[0])/dx:(0-P[0])/dx;return[P[0]+dx*t,P[1]+dy*t];};
+  return{A,B,C,D,arc,ra:ray(A,-.866,-.5),rb:ray(B,.866,-.5),rc:ray(C,.866,.5),rd:ray(D,-.866,.5),P:p=>pt[p]};
+}
+function drawBoard(){
+  const g=perimeter(),pts=a=>a.map(p=>p.join(",")).join(" ");
+  let svg=`<svg viewBox="0 0 ${BW} ${BH}" xmlns="http://www.w3.org/2000/svg">
+  <polygon points="${pts([g.ra,...g.arc(g.A,g.B),g.rb,[BW,0],[0,0]])}" fill="${cfg.t1}"/>
+  <polygon points="${pts([g.rc,...g.arc(g.C,g.D),g.rd,[0,BH],[BW,BH]])}" fill="${cfg.t1}"/>
+  <polygon points="${pts([g.rb,...g.arc(g.B,g.C),g.rc])}" fill="${cfg.t2}"/>
+  <polygon points="${pts([g.ra,...g.arc(g.D,g.A).reverse(),g.rd])}" fill="${cfg.t2}"/>`;
+  for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++)
+    svg+=`<polygon class="cell" id="h${r*COLS+c}" data-i="${r*COLS+c}" points="${pts(vx(r,c))}" fill="#fff" stroke="#000" stroke-width="4" stroke-linejoin="round"/>`;
+  for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++)
+    svg+=`<text class="ltr" id="t${r*COLS+c}" x="${cx(r,c)}" y="${cy(r)}" text-anchor="middle" dominant-baseline="central"></text>`;
+  [[g.A,g.ra],[g.B,g.rb],[g.C,g.rc],[g.D,g.rd]].forEach(([p,q])=>{const P=g.P(p);
+    svg+=`<line x1="${P[0]}" y1="${P[1]}" x2="${q[0]}" y2="${q[1]}" stroke="#000" stroke-width="5" stroke-linecap="round"/>`;});
+  board.innerHTML=svg+`</svg>`;
+  document.querySelectorAll('polygon.cell').forEach(p=>p.onclick=()=>pick(+p.dataset.i));
+}
+function pool(){return cfg.letters==='ar'?AR:cfg.letters==='en'?EN:AR.concat(EN);}
+function deal(){state.letters=pool().slice().sort(()=>Math.random()-.5).slice(0,25);}
+function neighbors(i){
+  const r=Math.floor(i/COLS),c=i%COLS,odd=r%2,out=[];
+  [[r,c-1],[r,c+1],[r-1,c-(odd?0:1)],[r-1,c+(odd?1:0)],[r+1,c-(odd?0:1)],[r+1,c+(odd?1:0)]]
+    .forEach(([R,C])=>{if(R>=0&&R<ROWS&&C>=0&&C<COLS)out.push(R*COLS+C);});
+  return out;
+}
+function won(team){
+  const own=i=>state.owner[i]===team,starts=[],ends=[];
+  for(let k=0;k<COLS;k++){
+    if(team===1){starts.push(k);ends.push((ROWS-1)*COLS+k);}
+    else{starts.push(k*COLS);ends.push(k*COLS+COLS-1);}}
+  const seen=new Set(),q=starts.filter(own);q.forEach(i=>seen.add(i));
+  while(q.length){const i=q.pop();neighbors(i).forEach(n=>{if(own(n)&&!seen.has(n)){seen.add(n);q.push(n);}});}
+  return[...seen].some(i=>ends.includes(i));
+}
+function pick(i){if(state.done||state.owner[i])return;state.sel=(state.sel===i?null:i);sync();}
+function sync(){
+  const t=L();
+  state.owner.forEach((o,i)=>{
+    document.getElementById('h'+i).setAttribute('fill',state.sel===i?"#FFD60A":o===1?cfg.t1:o===2?cfg.t2:"#fff");
+    document.getElementById('t'+i).textContent=state.letters[i];});
+  s1.textContent=state.owner.filter(x=>x===1).length;
+  s2.textContent=state.owner.filter(x=>x===2).length;
+  roundNo.textContent=state.round; cOf.textContent=t.of+cfg.rounds;
+  const has=state.sel!==null&&!state.done;
+  tile.textContent=has?state.letters[state.sel]:"—";tile.classList.toggle('live',has);
+  lbl.textContent=has?t.who:t.pick;
+  b1.classList.toggle('live',has);b2.classList.toggle('live',has);
+  w1.textContent=state.hist.filter(h=>h.t===1).length;
+  w2.textContent=state.hist.filter(h=>h.t===2).length;
+  hist.innerHTML=state.hist.slice().reverse().map(h=>
+    `<li><i style="background:${h.t===1?cfg.t1:cfg.t2}"></i>${h.t===1?t.t1:t.t2}<b>${t.round} ${h.r}</b></li>`).join("");
+}
+function award(team){
+  if(state.sel===null||state.done)return;
+  state.owner[state.sel]=team;state.sel=null;sync();
+  if(!won(team))return;
+  state.done=true;state.hist.push({r:state.round,t:team});
+  const t=L(),wins=state.hist.filter(h=>h.t===team).length, need=Math.ceil(cfg.rounds/2);
+  state.over=wins>=need;
+  winCard.style.setProperty('--c',team===1?cfg.t1:cfg.t2);
+  winKicker.textContent=state.over?t.matchOver:t.roundOver;
+  winTitle.textContent=team===1?t.t1:t.t2;
+  winSub.textContent=state.over?t.champ+" "+wins+"—"+state.hist.filter(h=>h.t!==team).length:(team===1?t.sub1:t.sub2);
+  againBtn.style.display=state.over?'none':'';
+  homeBtn.textContent=state.over?t.home:t.home;
+  overlay.classList.add('show');
+  t1.classList.toggle('on',team===1);t2.classList.toggle('on',team===2);
+  sync();
+}
+function startRound(){
+  if(state.over)return;
+  if(state.done)state.round++;
+  state.owner=Array(25).fill(null);state.sel=null;state.done=false;
+  deal();overlay.classList.remove('show');
+  t1.classList.add('on');t2.classList.remove('on');
+  sync();
+}
+function newMatch(){
+  Object.assign(state,{owner:Array(25).fill(null),sel:null,round:1,hist:[],done:false,over:false});
+  deal();drawBoard();applyLang();overlay.classList.remove('show');
+  t1.classList.add('on');t2.classList.remove('on');sync();
+}
+function goHome(){scGame.classList.remove('on');scHome.classList.add('on');}
+b1.onclick=()=>award(1); b2.onclick=()=>award(2);
+btnNew.onclick=startRound; againBtn.onclick=startRound;
+btnExit.onclick=goHome; homeBtn.onclick=goHome;
+document.addEventListener('keydown',e=>{if(e.key==='1')award(1);if(e.key==='2')award(2);});
+
+applyColors();paintSel();applyLang();deal();drawBoard();sync();
+</script>
+</body>
+</html>
