@@ -208,7 +208,10 @@ an outer wrapper with its own separate toolchain (npm, Xcode).
   `ios/` *into itself*, growing without bound. Run `npm run sync-web` (copies the
   actual web files + `icons/` into `www/`) before every `npx cap sync ios` whenever
   the web app has changed — **don't edit files inside `www/` directly**, they get
-  overwritten by the next sync.
+  overwritten by the next sync. The script `rm -rf`s `www/icons` before re-copying it
+  — plain `cp -r icons www/icons` when `www/icons` already exists nests it into
+  `www/icons/icons/` instead of replacing it (this actually happened once), so don't
+  simplify that line back down to a bare `cp -r`.
 - **`npx cap sync ios` after any web change that should reach the app**, in this
   order: edit the real files → `npm run sync-web` → `npx cap sync ios`. Only syncing
   copies `www/` into `ios/App/App/public/`; editing the root files alone does nothing
@@ -319,6 +322,14 @@ app — the board is purely a local letter-matching mechanism; questions are sup
 verbally by whoever's running the game. Don't build real question-bank content or
 networking without being asked; these boxes exist solely to signal the features are
 planned.
+
+**"1v1 Online" must be true internet multiplayer when it's eventually built** — two
+players on separate devices/networks playing a real-time match, not local same-device
+play (already covered by the existing "Start Game" 2-team mode) and not local-network/
+same-Wi-Fi play. This is a real scope commitment: unlike everything else in this app,
+it will require a backend (matchmaking + real-time state sync between two clients),
+breaking the "no backend" principle that's held for the rest of the app so far. Don't
+build it as a peer-to-peer/local-network shortcut thinking that satisfies "online."
 
 ## Tournament mode (`tournament.js`)
 

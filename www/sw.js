@@ -1,4 +1,4 @@
-const CACHE = 'hex-letters-v27';
+const CACHE = 'hex-letters-v28';
 const ASSETS = [
   './',
   './index.html',
