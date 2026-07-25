@@ -243,15 +243,28 @@ render functions after loading.
   existing apply* functions), it needs the same explicit sync — don't assume
   `loadSettings()` alone makes the UI match `cfg`.
 
-## Coming soon (Question Bank)
+## Coming soon (Question Bank, 1v1 Online)
 
-The home screen's "بنك الأسئلة" (Question Bank) box (`#qbBtn`) opens a full-screen
-overlay (`#qbOverlay`) announcing "قريباً" (Coming soon) with a single OK button
-(`#qbClose`). It reuses the same `.overlay`/`.card`/`.acts`/`.solid` classes as the
-in-game win overlay. There is no actual question content anywhere in this app — the
-board is purely a letter-matching mechanism; questions are supplied verbally by
-whoever's running the game. Don't build real question-bank content/data without being
-asked; this box exists solely to signal the feature is planned.
+One shared overlay (`#qbOverlay`, `#qbCard`) handles every "planned but not built yet"
+home screen feature — currently two triggers: "بنك الأسئلة" (Question Bank, `#qbBtn`,
+styled `.qbBox`, dashed pill inside `.bottomRow`) and "1v1 اونلاين" (1v1 Online,
+`#onlineBtn`, styled `.comingSoonRow`, a dashed full-width row below the Tournament
+button — a different visual treatment for a different placement, same underlying
+pattern). Each button's `onclick` sets `qbCardTitle.textContent` to its own label
+(`L().qbTitle` / `L().onlineTitle`) before showing the overlay — `qbCardSub` always
+just says "قريباً" (Coming soon) and `#qbClose` closes it, both generic across
+triggers. It reuses the same `.overlay`/`.card`/`.acts`/`.solid` classes as the
+in-game win overlay.
+
+Adding a third "coming soon" feature: add its own button + i18n title key, then wire
+`onclick=()=>{qbCardTitle.textContent=L().yourTitleKey;qbOverlay.classList.add('show');}`
+— don't create a new overlay per feature.
+
+There is no actual question content, and no online/networked play, anywhere in this
+app — the board is purely a local letter-matching mechanism; questions are supplied
+verbally by whoever's running the game. Don't build real question-bank content or
+networking without being asked; these boxes exist solely to signal the features are
+planned.
 
 ## Tournament mode (`tournament.js`)
 

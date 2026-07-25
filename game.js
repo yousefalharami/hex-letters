@@ -51,7 +51,7 @@ function applyLang(){
   lblRounds.textContent=t.rounds; lblLetters.textContent=t.letters;
   segLetters.querySelectorAll('button').forEach(b=>b.textContent=t[b.dataset.v]);
   name1.placeholder=t.t1; name2.placeholder=t.t2;
-  qbBtn.textContent=t.qbTitle; qbCardTitle.textContent=t.qbTitle;
+  qbBtn.textContent=t.qbTitle; onlineBtn.textContent=t.onlineTitle; qbCardTitle.textContent=t.qbTitle;
   qbCardSub.textContent=t.qbSoon; qbClose.textContent=t.ok;
   n1.textContent=teamLabel(1); n2.textContent=teamLabel(2); b1.textContent=teamLabel(1); b2.textContent=teamLabel(2);
   cRound.textContent=t.round; cOf.textContent=t.of+cfg.rounds;
@@ -65,7 +65,8 @@ segLang.onclick=e=>{if(e.target.dataset.v){cfg.lang=e.target.dataset.v;paintSel(
 gameTitle.addEventListener('input',()=>{cfg.title[cfg.lang]=gameTitle.textContent;persistSettings();});
 name1.addEventListener('input',()=>{cfg.names[1]=name1.value.trim();persistSettings();});
 name2.addEventListener('input',()=>{cfg.names[2]=name2.value.trim();persistSettings();});
-qbBtn.onclick=()=>qbOverlay.classList.add('show');
+qbBtn.onclick=()=>{qbCardTitle.textContent=L().qbTitle;qbOverlay.classList.add('show');};
+onlineBtn.onclick=()=>{qbCardTitle.textContent=L().onlineTitle;qbOverlay.classList.add('show');};
 qbClose.onclick=()=>qbOverlay.classList.remove('show');
 startBtn.onclick=()=>{newMatch();scHome.classList.remove('on');scGame.classList.add('on');};
 
