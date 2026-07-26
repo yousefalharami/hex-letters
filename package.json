@@ -5,7 +5,7 @@
   "main": "board.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "sync-web": "cp index.html styles.css i18n.js board.js game.js tournament.js storage.js pwa.js manifest.json sw.js www/ && rm -rf www/icons && cp -r icons www/icons"
+    "sync-web": "cp index.html styles.css i18n.js board.js game.js tournament.js storage.js pwa.js orientation.js manifest.json sw.js www/ && rm -rf www/icons && cp -r icons www/icons && rm -rf www/vendor && cp -r vendor www/vendor"
   },
   "keywords": [],
   "author": "",
@@ -14,7 +14,9 @@
   "dependencies": {
     "@capacitor/cli": "^8.4.2",
     "@capacitor/core": "^8.4.2",
-    "@capacitor/ios": "^8.4.2"
+    "@capacitor/ios": "^8.4.2",
+    "@capacitor/screen-orientation": "^8.0.1",
+    "@capacitor/status-bar": "^8.0.3"
   },
   "devDependencies": {
     "@capacitor/assets": "^3.0.5"

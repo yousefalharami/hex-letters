@@ -1,5 +1,15 @@
 {
   "appId": "app.hexletters",
   "appName": "hex letters حروف",
-  "webDir": "www"
+  "webDir": "www",
+  "backgroundColor": "#0D1014",
+  "ios": {
+    "contentInset": "never",
+    "backgroundColor": "#0D1014"
+  },
+  "plugins": {
+    "StatusBar": {
+      "overlaysWebView": true
+    }
+  }
 }
