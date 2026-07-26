@@ -55,3 +55,14 @@ function refitBoard(){
 }
 window.addEventListener('resize',refitBoard);
 window.addEventListener('orientationchange',refitBoard);
+/* .stage's actual rendered box is the real source of truth sizeBoardCanvas()
+   reads — a plain window 'resize' can fire before that box has fully
+   settled on some devices (observed: iPad, aspect-ratio-dependent white
+   edges that a fixed-delay redraw sometimes missed). ResizeObserver fires
+   whenever .stage's own box genuinely changes size, however many layout
+   passes that takes, so this is a direct signal rather than a timing
+   guess — keeps refitBoard() self-correcting regardless of device/ratio. */
+if(typeof ResizeObserver!=='undefined'){
+  const stageEl=document.querySelector('.stage');
+  if(stageEl)new ResizeObserver(refitBoard).observe(stageEl);
+}

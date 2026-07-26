@@ -102,7 +102,18 @@
          width:calc(100% + env(safe-area-inset-left))}
   .stage::before{content:"";position:absolute;left:0;right:0;bottom:100%;height:44px;background:var(--t1);pointer-events:none}
   .boardWrap{position:relative;width:100%;height:100%;min-height:0}
-  .board{background:#fff;width:100%;height:100%}
+  /* Background is var(--t1), not white: this color is a fallback that ONLY
+     ever shows through where the SVG's own content doesn't fully reach the
+     box (a residual letterbox sliver from any imperfect aspect-ratio
+     match) — the hex cells' actual white fill comes from the SVG's own
+     fill="#fff" attribute, not from this. Any such sliver is always at the
+     top/bottom (both zone-fill bands are cfg.t1, see board.js), on any
+     device/orientation/aspect ratio, without needing to size a cover for
+     an unknown gap — this fixes it at the source instead of guessing a
+     decorative overlay's height per device (an iPad-specific attempt at
+     that was tried, worked on one model, and was reported still visibly
+     white on another — replaced by this, don't reintroduce that pattern). */
+  .board{background:var(--t1);width:100%;height:100%}
   .board svg{display:block;width:100%;height:100%}
   .bar{display:flex;gap:8px}
   .ghost{flex:1;background:none;border:1px solid var(--line);color:var(--mute);border-radius:10px;padding:clamp(7px,calc(.8 * var(--evw)),11px);font:600 clamp(10px,calc(.9 * var(--evw)),13px) Tajawal;cursor:pointer}

@@ -753,6 +753,40 @@ an outer wrapper with its own separate toolchain (npm, Xcode).
       that map to the device's physical *top*, where Face-ID iPads' camera cutout
       actually lives), implement the mapping above via the same `--s*`-custom-property
       pattern as `--evw`/`--evh`, not by guessing again from scratch.
+  - **iPad-only white top/bottom edges (board's own `#fff` background showing through,
+    not a page-background gap) — reported in *both* orientations, worse on some iPad
+    models (13") than others, and fixed at the SVG-fit source rather than covered by a
+    decorative overlay.** Two earlier attempts at this — a fixed-px overlay, then an
+    iPad-scoped `--evh`-relative one (`html.is-ipad .stage::before`/`::after`) — were
+    each tried, each *looked* fixed on whichever specific device tested it, and each
+    was then reported still white on a *different* iPad model. That pattern (fixed on
+    one device, not another) is what ruled out "guess a big enough cover" as a class of
+    fix, no matter how it's scaled — the actual gap size isn't something a hardcoded
+    multiplier can chase across every panel size, and there's no reliable signal
+    available for what that gap even *is* on a given device from CSS alone. **Current
+    fix, at the actual source**: `.board`'s CSS `background` is `var(--t1)`, not
+    `#fff`. This works regardless of the gap's size on any device, because of what that
+    background color actually *is* — it never paints anywhere except wherever the
+    SVG's own content (which always fully covers whatever box it's given, per
+    `preserveAspectRatio`) doesn't quite reach the edge of `.board`'s box, i.e. exactly
+    a residual letterbox sliver from any imperfect canvas/box aspect-ratio match, on
+    literally any device — so instead of covering a gap of unknown size with a
+    same-colored patch positioned outside the board's real box, the gap simply
+    *paints the right color in the first place*. The hex cells' own white fill is
+    unaffected — it's set directly on the SVG polygons via `fill="#fff"`, not inherited
+    from `.board`'s CSS background, so this only ever changes what shows through a gap,
+    never a cell's own color. Both zone-fill bands (top and bottom) are `cfg.t1` (see
+    `board.js`), so `var(--t1)` is correct for either edge without needing a separate
+    top/bottom distinction. **If a white sliver is ever reported again, this rule is
+    not the place to re-litigate — check `sizeBoardCanvas()`'s own fit math next**
+    (flagged as the actual next step when this was still theorized as a
+    `ResizeObserver`-timing issue, see below — that fix is kept, still plausibly real,
+    just evidently not sufficient alone). The `ResizeObserver` on `.stage` (added
+    alongside the existing `resize`/`orientationchange` listeners in `board.js`'s
+    `refitBoard()`) is kept regardless — it's a real, independently-justified
+    correctness improvement (a generic `resize` event can fire before `.stage`'s box
+    has *actually* finished settling on some devices) even though it wasn't sufficient
+    by itself to fully solve this specific symptom.
   - **`@capacitor/screen-orientation` and `@capacitor/status-bar` are consumed
     without a bundler**, matching this project's no-build-step rule for the *web app*
     itself: `vendor/capacitor.js`, `vendor/capacitor-screen-orientation.js`, and
