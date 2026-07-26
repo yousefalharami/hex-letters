@@ -2,7 +2,7 @@
 <html lang="ar" dir="rtl">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <title>Hex Letters</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -17,6 +17,17 @@
 <meta name="apple-mobile-web-app-title" content="خلية الحروف">
 </head>
 <body>
+
+<div id="splash" class="splash">
+  <svg class="hexmark" viewBox="0 0 100 100"><polygon points="50,6 88,28 88,72 50,94 12,72 12,28" fill="none" stroke="var(--t1)" stroke-width="7"/><polygon points="50,26 71,38 71,62 50,74 29,62 29,38" fill="var(--t2)"/></svg>
+</div>
+<script>
+  setTimeout(function(){
+    var sp=document.getElementById('splash');
+    sp.classList.add('hide');
+    sp.addEventListener('transitionend',function(){sp.style.display='none';},{once:true});
+  },1000);
+</script>
 
 <!-- ================= HOME ================= -->
 <section class="screen on" id="scHome"><div class="home"><div class="home-in">
@@ -71,9 +82,16 @@
 <section class="screen" id="scGame"><div class="wrap">
   <div class="panel">
     <h2 class="sideTitle" id="sideTitle"></h2>
-    <span class="chip"><span id="cRound"></span> <b id="roundNo">1</b><span id="cOf"></span></span>
-    <div class="team on" id="t1" style="--c:var(--t1)"><h3 id="n1"></h3><div class="score" id="s1">0</div></div>
-    <div class="team" id="t2" style="--c:var(--t2)"><h3 id="n2"></h3><div class="score" id="s2">0</div></div>
+    <div class="chipRow">
+      <span class="chip"><span id="cRound"></span> <b id="roundNo"></b></span>
+      <button class="modeToggle" id="darkModeBtn" aria-pressed="false"><span class="modeIcon">◐</span><span id="darkModeLbl"></span></button>
+    </div>
+    <div class="log">
+      <header>
+        <div class="tally"><span id="w1" style="color:var(--t1)">0</span><span class="x">—</span><span id="w2" style="color:var(--t2)">0</span></div>
+      </header>
+      <ol id="hist"></ol>
+    </div>
     <div class="now">
       <div class="tile" id="tile">—</div>
       <div style="flex:1">
@@ -82,12 +100,6 @@
           <button class="btn" id="b2" style="background:var(--t2)"></button>
         </div>
       </div>
-    </div>
-    <div class="log">
-      <header>
-        <div class="tally"><span id="w1" style="color:var(--t1)">0</span><span class="x">—</span><span id="w2" style="color:var(--t2)">0</span></div>
-      </header>
-      <ol id="hist"></ol>
     </div>
     <div class="bar">
       <button class="ghost" id="undoBtn" disabled></button>
@@ -108,6 +120,10 @@
   </div>
 </div></section>
 
+<script src="vendor/capacitor.js"></script>
+<script src="vendor/capacitor-screen-orientation.js"></script>
+<script src="vendor/capacitor-status-bar.js"></script>
+<script src="orientation.js"></script>
 <script src="i18n.js"></script>
 <script src="board.js"></script>
 <script src="game.js"></script>

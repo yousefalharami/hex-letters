@@ -1,4 +1,4 @@
-const CACHE = 'hex-letters-v28';
+const CACHE = 'hex-letters-v49';
 const ASSETS = [
   './',
   './index.html',
@@ -8,11 +8,15 @@ const ASSETS = [
   './game.js',
   './tournament.js',
   './storage.js',
+  './orientation.js',
   './pwa.js',
   './manifest.json',
   './icons/icon-192.png',
   './icons/icon-512.png',
-  './icons/icon-512-maskable.png'
+  './icons/icon-512-maskable.png',
+  './vendor/capacitor.js',
+  './vendor/capacitor-screen-orientation.js',
+  './vendor/capacitor-status-bar.js'
 ];
 
 self.addEventListener('install', e => {

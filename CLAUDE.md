@@ -37,10 +37,11 @@ code encode them precisely, and changes that violate them will look subtly wrong
       the round log (`sync()`'s `hist.innerHTML`), where a readable per-entry label
       still matters alongside the colored dot.
     - `teamLabel(team)` → empty string (`cfg.names[team]||''`, no text fallback at
-      all). Used by the sidebar team cards and the award buttons (`n1`/`n2`/`b1`/`b2`
-      in `applyLang()`) — deliberately blank when unnamed, relying on the card/button's
-      own color to distinguish teams, since duplicating "Team 1"/"Team 2" next to an
-      already-colored box was reported as visual clutter.
+      all). Used by the award buttons (`b1`/`b2` in `applyLang()`) — deliberately blank
+      when unnamed, relying on the button's own color to distinguish teams, since
+      duplicating "Team 1"/"Team 2" next to an already-colored box was reported as
+      visual clutter. (Used to also drive `n1`/`n2` on the sidebar team cards before
+      those cards were removed — see "Sidebar has no team cards" below.)
     - `winnerLabel(team)` → the team's *color name* (`colorName()`, backed by the
       `COLOR_NAMES` lookup keyed by the exact hex values in `PRESETS1`/`PRESETS2`).
       Used only by the win popup (`winTitle` in `award()`) — the one deliberate,
@@ -96,10 +97,309 @@ code encode them precisely, and changes that violate them will look subtly wrong
   `order:2`) rather than relying on logical-property default flow, since a naive RTL
   flip would otherwise move the panel to the left in LTR mode.
 
+## Narrow-viewport / no-horizontal-overflow safety
+
+The app is used inside the iOS wrapper (see "iOS App Store wrapper" below). Only the
+home screen is portrait — everything else (tournament setup/bracket, the live game
+board) force-locks to landscape (~660–930px wide) — but all of this was hardened down
+to 390px-wide regardless, since a portrait phone width is the actual narrow case that
+matters (home screen) and it's a strict superset of what landscape ever needs.
+
+- **`html,body{overflow-x:hidden;max-width:100%}`** is a *last-resort guard*, not the
+  fix itself — everything is sized to actually fit first; this just prevents a page
+  jump/scroll if something new someday doesn't.
+- **Two different "won't shrink below content size" gotchas got fixed, one per layout
+  mode**: flex items and grid `1fr` tracks *both* default to an implicit
+  `min-width:auto`, which stops them shrinking below their content's natural width no
+  matter how little space is available — the classic cause of "one wide element forces
+  the whole row/page wider than the viewport." Flex fix: explicit `min-width:0` on the
+  item (already used throughout for text truncation, e.g. `.team h3`,
+  `.tourNameInput`). Grid fix: `minmax(0,1fr)` instead of a bare `1fr` on any
+  `grid-template-columns` — applied to `.wrap` (game screen sidebar/board split),
+  `.tourTeams`, and `.tourColorPicker`. If a future grid/flex layout is added and
+  looks fine on desktop but overflows narrow/landscape widths, this is almost
+  certainly why — check for a bare `1fr` or a flex item missing `min-width:0` before
+  assuming it's something else.
+- **The home screen's team-color swatches were the original concrete overflow bug**:
+  `.teamline` (dot + name input + 10-swatch row) had no wrapping at any level, and
+  `.teamName` was a flat fixed `150px`. Fixed by making `.teamline` and `.swatches`
+  both `flex-wrap:wrap`, and `.teamName` a responsive `width:clamp(90px,32vw,150px)`
+  instead of a fixed value. Don't revert `.teamName` back to a bare pixel width.
+- **`env(safe-area-inset-*)` on `body`, all four sides**, not just left/right — the
+  app is portrait on the home screen and landscape everywhere else (see "Orientation
+  is per-screen" below), so the notch/Dynamic Island can be at the **top** (home,
+  portrait) or the **left/right edge** (every other screen, landscape) depending on
+  which screen is showing. Originally only left/right were added (reasoning about
+  landscape alone), which left the home screen's logo rendering under the status
+  bar/notch with no top padding — don't narrow this back down to left/right only.
+  Requires `viewport-fit=cover` in `index.html`'s viewport meta tag to be non-zero —
+  without it these `env()` values always resolve to `0` and silently do nothing.
+- **`.home::before` fills the top safe-area strip with matching background** — same
+  problem class as the game screen's `.stage::before` (see "Game screen board fill"
+  below), different screen: `body`'s `padding-top:env(safe-area-inset-top)` (needed to
+  keep the logo below the notch, see above) leaves that padding strip showing
+  whatever's *behind* `.home` — before this fix, a mismatched flat dark tone instead of
+  `.home`'s own radial-gradient background, reading as a visible seam near the notch.
+  `.home::before` is a decorative, absolutely-positioned filler (`bottom:100%`, fixed
+  `60px` height, its own radial-gradient tuned so its bottom edge — the seam — closely
+  matches the color `.home`'s own gradient shows at *its* top edge) that bleeds
+  upward past `.home`'s real box, same "don't touch the real box, only decorate above
+  it" principle as `.stage::before` — `.home`'s own `min-height:100vh`/`padding`/
+  `place-items:center` centering (and therefore `.home-in`'s content position) is
+  completely untouched, so the logo/buttons don't shift at all. Needed `.home{position:
+  relative}` added (wasn't set before) so the pseudo-element positions against it.
+- `.tourBracket`'s own `overflow-x:auto` (for the 16-team bracket, which is
+  legitimately wider than any phone) is a **deliberate, contained** exception, not a
+  bug the page-level guard should suppress — an ancestor's `overflow-x:hidden` doesn't
+  affect a descendant's own explicit `overflow-x:auto`, so the two coexist correctly.
+- **Double-tap-to-zoom is disabled app-wide, two layers deep on purpose**: the
+  viewport meta tag has `maximum-scale=1, user-scalable=no` (blocks pinch/double-tap
+  zoom at the browser level) *and* `html,body{touch-action:manipulation}` (blocks the
+  double-tap gesture at the CSS level, and removes the ~300ms tap-delay some WebViews
+  add). Neither alone was considered sufficient — keep both. `manipulation` still
+  permits normal panning/scrolling (`.panel{overflow-y:auto}`, `.log ol{overflow:auto}`,
+  `.tourBracket{overflow-x:auto}` above all keep working) and ordinary single taps
+  (hex cells, buttons) — it only removes the double-tap-zoom gesture specifically,
+  don't reach for `touch-action:none` as a "stronger" fix, that would break scrolling.
+
+## Game screen board fill (dynamic canvas width, not letterboxing)
+
+The board fills the *entire* landscape stage next to the sidebar — zero dark or white
+margin on any side except the boundary against the sidebar itself — on every iPhone/iPad
+shape. This is **not** CSS letterboxing (that was tried and rejected: it left visible
+letterbox strips as plain `.board` white background). Instead, `board.js`'s canvas
+(`viewBox`) width is solved live to exactly match the real container shape:
+
+- `board.js`: `BASE_BW` is the hex grid's own natural width (constant, from `s`/`w`/`m` —
+  never changes). `BW` (mutable, module-level `let`) and `shiftX` (horizontal centering
+  offset) are recomputed by `sizeBoardCanvas()` on every `drawBoard()` call, plus on
+  `resize`/`orientationchange` (debounced 80ms via `refitBoard()`, which also calls
+  `sync()` afterward — never `deal()`, that would reshuffle letters mid-match).
+  `sizeBoardCanvas()` measures `.stage`'s real `getBoundingClientRect()` and picks
+  `BW = max(BASE_BW, BH * stageWidth/stageHeight)` — i.e. the canvas is stretched wide
+  enough that `canvasWidth/canvasHeight` exactly equals the container's real aspect
+  ratio, so the SVG (already `width:100%;height:100%`) has nothing left to letterbox.
+  The hex cells themselves never resize/distort — only the canvas they sit on gets wider,
+  and `cx()`/the perimeter-walk `A`/`B`/`C`/`D` corners shift by `shiftX` to stay
+  centered. The zone-fill polygons already reach the canvas edge via `ray()`-casting
+  (`(BW-P[0])/dx`), so they automatically stretch into the new width with no changes of
+  their own needed. **Do not revert to a fixed `BW` constant or a `vh`-based width
+  formula on `.boardWrap`** — both were tried and both under-filled or letterboxed.
+  **Any place that calls `drawBoard()` must do so only after the game screen is already
+  visible** (`scGame` has class `on`) — measuring a `display:none` ancestor returns a
+  zero-size rect, guarded by `sizeBoardCanvas()`'s early return, but that means BW stays
+  stale/default. `startBtn.onclick` deliberately adds the `on` class *before* calling
+  `newMatch()` for this reason — don't reorder it back.
+- `styles.css`: `.board` has no `border-radius`/`overflow:hidden`/`border` — the painted
+  zone reaches literal square corners, no rounded-corner reveal of page background.
+  `.stage` bleeds past `body`'s top/bottom `safe-area-inset` specifically for the board
+  (negative `margin-top`/`margin-bottom` equal to those insets, height increased by the
+  same amount) so the board reaches the true top/bottom screen edges instead of stopping
+  at the padded-safe area — this is scoped to `.stage` only, `.panel` (sidebar) is
+  untouched and stays safely inset. This is deliberately **not** applied to `body`'s
+  padding itself, since that padding is shared with the portrait home screen and
+  protects the logo from the notch there (see "Narrow-viewport" section above) — don't
+  "simplify" this by removing `body`'s top/bottom padding globally.
+  The left-edge `safe-area-inset-left`/`right` on `body` are left alone (protective
+  margin against a landscape-rotated notch landing on either physical side).
+- **`.wrap`'s own `gap` and `padding` must stay `0`.** They used to both be
+  `clamp(10px,1.6vw,22px)`, which — even after the `.stage` safe-area bleed above —
+  still left a real dark strip: `gap` is unclaimed space *between* the `.panel`/`.stage`
+  grid columns (not owned by either), and `.wrap`'s own `padding` shrank the whole grid
+  box on all four sides, both independent of the safe-area-inset trick, so `.stage`
+  never actually spanned its full column even though it correctly filled whatever box it
+  *measured*. `.panel` carries that same spacing now, as its own `padding` — this keeps
+  the sidebar's content pixel-identical to before (same clamp value, now scoped to one
+  element instead of split across `.wrap`'s padding + gap), while `.stage`/`.board`
+  reach every edge of their column with zero unclaimed gap. **Don't put spacing back on
+  `.wrap` itself** — anything added there reintroduces the gap for `.stage` too, since
+  grid `gap`/`padding` apply to both columns, not just the sidebar one.
+- `sizeBoardCanvas()` in `board.js` never needed to change for any of this — it already
+  measures `.stage`'s real, live box and fills it exactly. Every "gap" bug so far has
+  been `.stage`'s box being smaller than the visual column (a pure CSS problem), not the
+  canvas-fitting math. If a gap reappears, check `.wrap`/`.stage` CSS before touching
+  `board.js`.
+- **A hairline dark strip can still show above `.stage`'s top edge on a real device**
+  even though the `margin-top:calc(-1 * env(safe-area-inset-top))` math is exactly
+  right on paper — this was confirmed on a real iPhone in landscape, not just a
+  simulator/theoretical gap. **Do not "fix" this by adding extra height/negative
+  margin to `.stage` itself** (that was tried and reverted): `.stage`'s own box is
+  exactly what `sizeBoardCanvas()` measures to size the canvas, so inflating it
+  inflates the *hexagons* too, not just the background — a real regression, not a fix.
+  `.stage::before` is a purely decorative, absolutely-positioned filler strip
+  (`bottom:100%`, generous fixed `44px` height, `background:var(--t1)`) that sits
+  *above* `.stage`'s real box and overshoots any residual gap, without changing
+  `.stage`'s own measured dimensions at all — `sizeBoardCanvas()` never sees it. It
+  uses `var(--t1)` (kept live by `applyColors()`) so it always matches the top
+  zone-fill's actual current color, team-1's. If a similar hairline ever shows up on a
+  different edge, use the same technique (a decorative `::before`/`::after` overlay
+  sized generously past the real box) — never grow `.stage`'s actual box to chase a
+  rendering-only gap. **This overlay is a secondary safety net, not the primary fix**
+  for a full-width top strip — see the status-bar-hide note under "Orientation is
+  per-screen" below. A strip that spans the *whole* screen width (sidebar included)
+  is the native iOS status bar itself, not a CSS gap; only `setStatusBarHidden()`
+  fixes that. `.stage::before` still earns its keep for any genuine sub-pixel
+  rendering gap in the board's own box once the status bar is out of the picture.
+- **Growing `.stage`'s *width* is safe; growing its *height* is not — this is an
+  asymmetry, not a contradiction of the point above.** `sizeBoardCanvas()` solves
+  `BW = max(BASE_BW, BH*(stageWidth/stageHeight))`, and since `BH` is a fixed constant,
+  the render scale factor is `stageHeight/BH` **only** — width never enters it. So
+  `.stage{margin-left:calc(-1 * env(safe-area-inset-left));
+  width:calc(100% + env(safe-area-inset-left))}` (bleeding the board's outer/left edge
+  past the left safe-area, mirroring the top-edge treatment but on the width axis) does
+  **not** change hex pixel size at all — only `BW`/the zone-fill's reach grows to match
+  the wider box, exactly like the top strip's "just extend the paint" goal, except this
+  one didn't need a decorative `::before` overlay because growing `.stage`'s real box
+  is safe here. The right edge (sidebar side) is intentionally left untouched by this —
+  it's handled separately by `.panel`'s own `margin-right` bleed, not by `.stage`.
+  **If a similar dark strip shows up on the right/outer edges of `.stage` itself**,
+  the same `margin-*`/`width` pattern applies; only the *top/bottom* (height) axis is
+  the one where this technique is forbidden.
+- **If a black strip near the Dynamic Island persists even with the status bar
+  hidden, it is not a CSS problem at all** — it's `capacitor.config.json` missing a
+  `backgroundColor`. Verified against Capacitor's own native source
+  (`node_modules/@capacitor/ios/.../CAPBridgeViewController.swift` and
+  `CAPInstanceDescriptor.swift/.m`), not just docs, before touching anything:
+  - `contentInsetAdjustmentBehavior` already **defaults to `.never`** (not
+    `.automatic`) even when `ios.contentInset` is never set — this project's config
+    never had it set, so this was never the cause here. Still made explicit
+    (`"ios":{"contentInset":"never"}`) for clarity/future-proofing, not because it was
+    broken.
+  - `clipToBounds` isn't a real Capacitor iOS config key in this version — doesn't
+    exist, nothing to check.
+  - `@capacitor/status-bar`'s `overlaysWebView` already **defaults to `true`**. More
+    fundamentally, `CAPBridgeViewController.loadView()` does `view = webView` — the
+    webview *is* the full-screen root view, no separate safe-area-constrained
+    container ever wraps it, so there's no "reserve space" mode to disable in the
+    first place. Still set explicitly in `capacitor.config.json`'s
+    `plugins.StatusBar.overlaysWebView` for the same clarity reason.
+  - **The actual gap**: with no `backgroundColor` configured, both `aWebView.
+    backgroundColor` and `aWebView.scrollView.backgroundColor` fall back to
+    `UIColor.systemBackground` (confirmed in `CAPBridgeViewController.swift`'s
+    `prepareWebView`) — which is **black in Dark Mode**. Any tiny native-rendering
+    sliver (before web content finishes painting, a scroll-bounce edge, a pixel the
+    CSS genuinely doesn't reach) shows *that* native color through, and no CSS
+    technique can ever paint over a webview's own native background — it's a layer
+    behind the web content, not part of it. Fix: `capacitor.config.json` now sets
+    `"backgroundColor": "#0D1014"` (matching `--ink`) at both the top level and under
+    `ios.backgroundColor`. **Don't remove this thinking it's unused/redundant with
+    CSS** — it's the one piece of this whole investigation that wasn't already a
+    Capacitor default, and it's what a CSS-only approach can structurally never fix.
+  - **Native config changes need a real Xcode rebuild, not just a webview reload or
+    even a normal incremental `npx cap run ios`** — `xcodebuild clean` first (project
+    is SPM-based in Capacitor 8.x, no `.xcworkspace`, use `-project App.xcodeproj
+    -scheme App`), then rebuild, whenever `capacitor.config.json`'s native-facing keys
+    (`backgroundColor`, `ios.*`, `plugins.*`) change.
+- `.panel` needs `overflow-y:auto` + `min-height:0` as a safety net for short landscape
+  heights (e.g. iPhone SE), since it has a definite stretched height (`align-items:
+  stretch` on `.wrap`) instead of natural/auto height. `.stage`/`.boardWrap` also need
+  `min-height:0` — same implicit-min-size gotcha as the narrow-viewport section above,
+  just the vertical-axis version (grid/flex items don't shrink below content size by
+  default).
+- **`.panel{margin-right:calc(-1 * env(safe-area-inset-right))}`** — closes the same
+  kind of redundant-double-inset gap as `.wrap`'s old `gap`/`padding` above, just on
+  the sidebar's outer edge instead of the board's: `.panel`'s own `padding` (the
+  comfortable clamp value) is already a safe inset for its cards/buttons, so
+  additionally reserving `body`'s `env(safe-area-inset-right)` *on top of* that padding
+  left an oversized, unnecessary gap between the sidebar and the true right edge. The
+  fix lets `.panel`'s content shift into the reclaimed space rather than compensating
+  with extra padding — content is still safely inset (by `.panel`'s own padding alone,
+  from the new true-edge boundary), just no longer double-inset. `.panel` sits at the
+  **physical right edge in both RTL and LTR** (confirmed via the grid mechanics: RTL's
+  default column order plus LTR's explicit `order:2` on `.panel` both resolve to the
+  narrow track landing on the right), so this is a plain physical `margin-right`, not a
+  logical property — don't "fix" it to `margin-inline-end` assuming that's more
+  RTL-correct, it would move to the wrong side in RTL specifically.
+- **Sidebar DOM order (top to bottom): title → `.chipRow` (round chip + dark-mode
+  toggle) → `.log` (tally + round history) → `.now` (current tile/buttons) → bottom
+  `.bar`.** `.panel` is a plain flex column with no explicit per-child order/position,
+  so this is purely DOM order in `index.html` — reordering it again just means moving
+  the `<div>`s, no CSS coupling to worry about.
+- **Sidebar has no team cards** (`#t1`/`#t2` divs with `n1`/`n2`/`s1`/`s2`) —
+  deliberately removed, not an oversight. They showed team name + this-round cell
+  count, which was judged redundant: the award buttons (`b1`/`b2`) already show each
+  team's name/color, and `.log`'s tally already shows the match-level score. Don't
+  re-add `.team`/`.score` CSS or `n1`/`n2`/`s1`/`s2` without being asked — they were
+  cleanly removed (HTML, CSS, and every JS reference, including the `t1`/`t2` DOM
+  elements' `.classList.toggle('on',…)` highlight state and its `t1on`/`t2on` fields in
+  `undoSnap`, which existed solely to highlight those cards and had no other purpose).
+  If a similar "which team is active" indicator is wanted again, it needs a new home —
+  don't assume `#t1`/`#t2` still exist as DOM ids (they're gone; `cfg.t1`/`cfg.t2`, the
+  *color* config, are unrelated and still very much present).
+- **`.sideTitle` wraps instead of truncating**: `white-space:nowrap` +
+  `text-overflow:ellipsis` were removed (replaced with `text-wrap:balance`) so a long
+  custom title wraps onto a second line instead of getting cut off with "…" — the
+  panel's flex `gap` naturally pushes the round chip down to make room, no fixed
+  height/collision handling needed. Don't add `white-space:nowrap` back without
+  reintroducing some other overflow-safe treatment (ellipsis alone was the original
+  complaint this fixed).
+- **`.tally` (the match-level win-count numbers, e.g. `w1`—`w2`) is deliberately much
+  larger now** (`clamp(34px,4.2vw,54px)`, up from `clamp(20px,2.4vw,30px)`) — bigger
+  than it was because the sidebar had spare vertical space at the old size. It's
+  intentionally now close to (or larger than) `.score` (the per-team round score,
+  `clamp(22px,2.6vw,36px)`) — that's fine, they're different numbers (match wins vs.
+  current-round cells owned) shown in different cards, not meant to visually match.
+
+## Dark mode (`cfg.darkMode`, board cell theming)
+
+A toggle (`#darkModeBtn`, next to the round chip in `.chipRow`) that inverts only the
+*neutral/unclaimed* hex cells — everything else about the board is untouched. Called
+"dark mode" in the UI/code (not "black mode" — renamed once already, don't revert).
+
+- **Scope is deliberately narrow**: only the fill of neutral cells (`#h0`-`#h24` when
+  not owned and not the current selection) and their letter color flip. Team-claimed
+  cells (`cfg.t1`/`cfg.t2`) and the selected cell (`#FFD60A`) keep their exact colors
+  and black letters in both modes — don't extend the toggle to touch those. The
+  zone-fill background chevrons (drawn in `board.js`'s `drawBoard()`, `cfg.t1`/`cfg.t2`
+  behind the grid) are **completely unrelated** to this toggle and must stay that way
+  — they encode which edge each team links to, not a "theme."
+- **Implementation lives entirely in `sync()` (`game.js`)**, not `board.js` — this is
+  deliberate: `drawBoard()`/`sizeBoardCanvas()` own geometry and never need to know
+  about color modes; `sync()` already re-paints every cell's `fill` from `state`/`cfg`
+  on every call, so dark mode is just more conditions in that same per-cell branch:
+  `neutral = state.sel!==i && !o`; cell fill is `cfg.darkMode?"#000":"#fff"` only when
+  `neutral`; letter fill is `"#fff"` only when `neutral && cfg.darkMode`, else always
+  `"#000"`. The per-cell `<text>` elements never had an explicit `fill` before this
+  (relied on the SVG default of black) — now `sync()` always sets one explicitly every
+  call, so there's no stale-fill risk across mode toggles or redraws.
+- **Cell border (`stroke`) must also flip, uniformly across every cell (not just
+  neutral ones)** — `drawBoard()` (`board.js`) draws each cell polygon with a hardcoded
+  `stroke="#000"` at creation time and never touches it again, so once dark mode makes
+  a neutral cell's *fill* black, that same hardcoded black *stroke* becomes invisible
+  against it — cell borders visually disappear. This was a real bug caught after first
+  shipping the toggle (fill-only, no stroke handling), not a hypothetical. Fixed the
+  same way as fill: `sync()` sets `stroke` on every cell every call too —
+  `cfg.darkMode?"#fff":"#000"`, uniform for all 25 cells regardless of ownership
+  (team-colored cells get white borders in dark mode too, not just neutral ones — this
+  was a deliberate simplification over per-cell-type border logic, for visual
+  consistency across the grid rather than a mix of white and black borders side by
+  side). `stroke-width`/`stroke-linejoin` are untouched, still set once in `board.js`.
+- **Persisted like colors/language** (`storage.js`, `hexletters:v1:settings`), *not*
+  like title/names (see "Persistence" below) — defaults to `false` (normal/white) on
+  first ever run. `loadSettings()` checks `typeof s.darkMode==='boolean'` rather than a
+  plain truthy check, since `false` is a legitimate saved value that a truthy check
+  would silently ignore (harmless here only because `false` also happens to be the
+  built-in default — don't copy the truthy-check shortcut for future boolean fields
+  without the same coincidence).
+- `paintDarkMode()` (`game.js`, next to `paintSel()`) syncs the toggle button's `.on`
+  class/`aria-pressed` and its label text — called from `applyLang()` (so the label
+  re-translates) and from the toggle's own click handler. It does **not** call
+  `sync()` itself; the click handler calls both `paintDarkMode()` and `sync()`
+  separately, since one updates the button chrome and the other repaints the board.
+
 ## Rounds and matches
 
 - Matches are best-of 1/3/5 (`cfg.rounds`), configured on the home screen. A team wins
   the match once its round-win count reaches `Math.ceil(cfg.rounds/2)`.
+- **The round chip shows an ordinal ("الجولة الأولى"), not "الجولة 1 من 3"** — a
+  deliberate format change. `T[lang].roundOrdinals` (`i18n.js`) is a 5-entry array
+  (index 0 = round 1), enough for the max `cfg.rounds=5`; `roundOrdinal(n)` (`game.js`,
+  next to `teamLabel`) looks it up with a numeric fallback if ever out of range. Both
+  `applyLang()` and `sync()` call it to keep `#roundNo` current on language switch and
+  on every round change. The old `#cOf`/`t.of` ("من 3") pieces were removed entirely —
+  don't reintroduce a "round N of M" format without being asked; the round-log entries
+  in `.log li` (`${t.round} ${h.r}`) intentionally still use the plain number, that
+  wasn't part of this change, only the chip was.
 
 ## Undo (`undoBtn`, `game.js`)
 
@@ -244,10 +544,75 @@ an outer wrapper with its own separate toolchain (npm, Xcode).
   Connect. The service-worker/manifest PWA machinery (`sw.js`, `pwa.js`,
   `manifest.json`) is inert inside Capacitor's `WKWebView` — harmless to leave in
   `www/`, just does nothing there.
-- **Open item, not yet resolved**: Apple requires a privacy policy URL for every App
-  Store listing, even though this app collects no data and has no backend. Needs a
-  simple hosted "we collect nothing" page before actual submission — out of scope
-  until asked.
+- **Privacy policy page exists (`privacy.html`, project root), but isn't hosted
+  anywhere yet — that's the one remaining piece before App Store submission.** Apple
+  requires a public URL for every listing, even though this app collects no data and
+  has no backend. `privacy.html` is a standalone, self-contained page (own inline
+  `<style>`, own Google Fonts `<link>` — doesn't depend on `styles.css`/the app bundle
+  at all, since it needs to work hosted on its own, separately from the app), bilingual
+  Arabic (RTL, primary) + English sections, matching the app's dark theme colors by
+  value (not by importing `styles.css`). **Deliberately not part of the app bundle**:
+  not in `sw.js`'s `ASSETS`, not copied by `sync-web` into `www/` — it's a public
+  document Apple links to from App Store Connect, not something the app itself
+  navigates to, so it doesn't belong in the offline-app asset list. Needs actual
+  hosting (e.g. GitHub Pages, or any static host) before the URL can go into App Store
+  Connect — that hosting step is still outstanding, out of scope until asked.
+- **Orientation is per-screen, not a single static lock**: `Info.plist`'s
+  `UISupportedInterfaceOrientations` (and `~ipad` variant) allow *all three*
+  (`Portrait`, `LandscapeLeft`, `LandscapeRight`) — this was originally a
+  landscape-only static lock (portrait removed entirely) but changed to allow
+  portrait again once the requirement became "only the home screen is portrait,
+  every other screen force-locks to landscape." Since a Capacitor app is a single
+  `WKWebView`/view controller, there's no such thing as "this native screen is
+  portrait, that one is landscape" at the OS level — the *supported* list has to
+  include everything any screen might lock to, and `orientation.js` actively locks
+  to the right one as the app navigates between screens (see below). Don't narrow
+  `UISupportedInterfaceOrientations` back down without also removing the
+  corresponding `lockPortrait()`/`lockLandscape()` calls, or a screen could try to
+  lock to an orientation the OS no longer allows.
+  - Verified no `INFOPLIST_KEY_UISupportedInterfaceOrientations*`/
+    `GENERATE_INFOPLIST_FILE` build settings exist in `project.pbxproj` that would
+    generate a competing Info.plist and shadow the file directly — if either ever
+    gets added (e.g. a future Xcode upgrade migrating to build-setting-driven
+    Info.plist generation), the orientation lists need to move there instead.
+- **`orientation.js` (new module) + `vendor/`** — `lockPortrait()`/`lockLandscape()`,
+  called at every screen transition: `lockPortrait()` on initial load (home is always
+  the start screen), in `goHome()` (`game.js`), and in `tourBack()`'s exit-to-home
+  path and `tourFinishTournament()` (`tournament.js`); `lockLandscape()` in
+  `startBtn.onclick` and `tourOpen()`/`tourLaunchMatch()`/`tourReturnToBracket()`.
+  `tourConfirmExit()` needs no separate call since it already routes through
+  `goHome()`. Both helpers are no-ops wrapped in try/catch — safe to call from a
+  plain browser (no native platform) or if the plugin bridge isn't present for any
+  reason; never let an orientation call be able to break navigation.
+  - `lockPortrait()`/`lockLandscape()` also toggle the native status bar now
+    (`setStatusBarHidden(false)`/`(true)`, `@capacitor/status-bar`) — hidden on every
+    landscape screen (game + tournament), shown again on the portrait home screen.
+    This was added specifically because a black strip across the *entire* screen
+    width (sidebar included, not just the board) turned out to be the real native
+    status bar itself compositing on top of the app, which is invisible to any CSS
+    safe-area/`env()` trick — those only affect where *web content* avoids the notch,
+    not whether the OS status bar is drawn at all. If a similar full-width (not just
+    board-width) dark strip ever reappears, check this toggle before reaching for
+    more CSS. Reuses the exact same per-screen call sites as orientation lock, so no
+    other file needed to change to wire it up.
+  - **`@capacitor/screen-orientation` and `@capacitor/status-bar` are consumed
+    without a bundler**, matching this project's no-build-step rule for the *web app*
+    itself: `vendor/capacitor.js`, `vendor/capacitor-screen-orientation.js`, and
+    `vendor/capacitor-status-bar.js` are the plugin ecosystem's own prebuilt browser
+    IIFE bundles (each package's `unpkg` field points at exactly these files) copied
+    in from `node_modules` — not authored here, don't hand-edit them. They're loaded
+    as plain `<script>` tags in `index.html`, before `i18n.js`, which is what makes
+    `window.Capacitor.Plugins.ScreenOrientation`/`.StatusBar` exist for
+    `orientation.js` to call. Regenerate them (re-copy from `node_modules`) if either
+    plugin is ever upgraded. `sync-web` copies `vendor/` into `www/vendor/` and
+    `sw.js`'s `ASSETS` precaches all three files — same "must be listed or offline
+    breaks" rule as every other runtime file.
+  - This also means `Capacitor.Plugins.ScreenOrientation`/`.StatusBar` are reachable
+    in the plain browser/PWA build too (`vendor/capacitor.js` doesn't check platform
+    before defining itself) — calls there fall through to each plugin's *web*
+    implementation, which either no-ops or rejects harmlessly (try/catch swallows
+    it), so this is fine, not a bug to "fix" by gating the vendor scripts to
+    native-only.
 
 ## Persistence (`storage.js`)
 
@@ -255,16 +620,19 @@ A small localStorage-backed module, loaded after `game.js`/`tournament.js` and b
 `pwa.js`, so it can read/write `cfg` (defined in `game.js`) and re-run `game.js`'s own
 render functions after loading.
 
-- **What's persisted**: game title (`cfg.title`, both languages), per-team names
-  (`cfg.names`), per-team colors (`cfg.t1`/`cfg.t2`), and UI language (`cfg.lang`) —
-  i.e. the home screen's own settings. Saved under one versioned key,
-  `hexletters:v1:settings`, as a single JSON blob (not one key per field).
-- **What's deliberately NOT persisted**: tournament progress. Leaving a tournament
-  (back button, exiting, or just closing/reloading the app) discards it entirely —
-  this was a deliberate choice, not an oversight, so don't add tournament
-  persistence/resume without being asked again. Rounds (`cfg.rounds`) and letter pool
-  (`cfg.letters`) for the 2-team game aren't persisted either — only what was
-  explicitly requested (title/names/colors/language).
+- **What's persisted**: per-team colors (`cfg.t1`/`cfg.t2`) and UI language
+  (`cfg.lang`) only. Saved under one versioned key, `hexletters:v1:settings`, as a
+  single JSON blob (not one key per field).
+- **What's deliberately NOT persisted**: game title (`cfg.title`) and per-team names
+  (`cfg.names`) — every fresh app launch resets these to `game.js`'s own defaults
+  (`{ar:"خلية الحروف",en:"Letter Hive"}` and `{1:"",2:""}`), even if the previous
+  session set custom ones. This was a deliberate reversal (colors/language should
+  survive a restart, title/names should not) — `saveSettings()`/`loadSettings()`
+  simply never read or write `title`/`names` at all; don't add them back without being
+  asked again. Also still not persisted: tournament progress (leaving a tournament —
+  back button, exiting, or closing/reloading the app — discards it entirely, a
+  separate deliberate choice, not an oversight) and, for the 2-team game, `cfg.rounds`/
+  `cfg.letters`.
 - **Every localStorage call is wrapped in try/catch** (`storageGet`/`storageSet`) and
   fails silently (returns `null` / no-ops) rather than throwing — covers private
   browsing mode (older Safari throws on `setItem`) and quota-exceeded errors. A failed
@@ -276,10 +644,12 @@ render functions after loading.
 - `game.js` calls a small wrapper, `persistSettings()` (defined in `game.js` itself,
   right next to `cfg`), at each point `cfg.title`/`names`/`t1`/`t2`/`lang` actually
   changes (`swatchRow`'s click handler, the `gameTitle`/`name1`/`name2` input
-  listeners, `segLang`'s click handler). The wrapper itself guards
-  `typeof saveSettings==='function'` before calling into `storage.js` — same optional-
-  hook pattern as `onMatchOver` in the tournament integration, so `game.js` still works
-  standalone if `storage.js` ever fails to load.
+  listeners, `segLang`'s click handler) — still called from all of these on purpose,
+  even the title/name ones, since `saveSettings()` itself is what filters down to just
+  `t1`/`t2`/`lang`; the call sites don't need to know which fields actually get saved.
+  The wrapper itself guards `typeof saveSettings==='function'` before calling into
+  `storage.js` — same optional-hook pattern as `onMatchOver` in the tournament
+  integration, so `game.js` still works standalone if `storage.js` ever fails to load.
 - On load, `storage.js` calls `loadSettings()` then re-runs `applyColors()`,
   `paintSel()`, `applyLang()` — the exact same three calls `game.js`'s own bottom-of-file
   init already made with defaults. Because all of this happens synchronously before the
@@ -374,10 +744,55 @@ size/rounds/draw pages) after it felt too slow to click through:
   and closes the panel. This replaced an earlier per-row-inline-bar design that was
   reported as overwhelming at 16 teams (320 always-visible swatches) — don't revert to
   per-row always-visible bars.
-- The draw (`tourDoDraw()`, called by the `setup` step's Draw button) is just a
-  Fisher-Yates shuffle into `tour.seeded` — no separate reveal page. The "nice
-  animation" lives on the bracket itself: `renderBracket(true)` staggers each match
-  box's entrance via `.tourReveal` + an inline `animation-delay` computed per box.
+- The draw (`tourDoDraw()`, called by the `setup` step's Draw button) is a Fisher-Yates
+  shuffle into `tour.seeded` — the actual seeding result — followed immediately by
+  `renderBracket(true)` + `runDrawReveal()`, which **animate** that already-decided
+  result being revealed. **The draw result is computed synchronously and instantly, in
+  one place (`tourDoDraw`); the reveal is a separate, purely presentational replay of
+  it** — don't conflate the two. If the reveal animation is ever changed again, the
+  shuffle/seeding logic shouldn't need to change at all, and vice versa.
+  - `renderBracket(revealing)`: when `revealing` is true, only the **round-1** match
+    slots (`left[0]`/`right[0]` — the directly-seeded teams, the only slots a draw
+    actually determines) render blank with predictable ids (`tourSlot0`, `tourSlot1`,
+    …, assigned in DOM order: all of `left[0]`'s slots first, then all of `right[0]`'s)
+    instead of their real team name — every other round already correctly shows `TBD`
+    regardless (`m.a`/`m.b` are `null` until a match is actually played later, a
+    completely separate flow), so nothing else needs blanking. `revealing` false/absent
+    (every other call site — returning from a played match, language switch, etc.)
+    renders real content everywhere, exactly as if no reveal ever happened — this is
+    what guarantees "draw result stays identical," since it's the exact same function
+    generating both the mid-reveal skeleton and the final state.
+  - `runDrawReveal()` (`tournament.js`) drives the animation by grabbing those slot ids
+    directly and mutating `textContent`/classes on a timer — it does **not** call
+    `renderBracket()` again per-team (that would be wasteful full-DOM-replace churn 25
+    times over); it only calls `renderBracket(false)` once, at the very end, to
+    guarantee the final DOM is byte-for-byte what a normal (non-revealing) render would
+    produce. Per-slot timing is a fixed **750ms budget regardless of team count**
+    (`PER=750`) — total reveal time is an emergent property of slot count (`tour.size`
+    slots always, one per team — round-1 always has exactly `tour.size/4` matches per
+    side × 2 slots × 2 sides = `tour.size` slots, regardless of bracket depth), not a
+    fixed total divided down — don't "simplify" this into a fixed total race-condition
+    across slots. Reduced-motion (`prefers-reduced-motion`) sets the flicker duration to
+    `0` (skips straight to the lock state) but keeps the same 750ms per-slot budget —
+    the *style* of the transition changes, not the pacing.
+  - **Skip must be instant, not just "stop scheduling more"**: each in-flight slot's
+    `cancelCurrent` closure clears its own pending `setInterval`/`setTimeout`s
+    synchronously before `finishAll()`'s `renderBracket(false)` runs — if skip only set
+    a flag that the *next* iteration checked, the currently-animating slot's own timers
+    would still fire up to ~750ms later, against DOM nodes `renderBracket(false)` has
+    already replaced (harmless, since they're detached, but wasteful and not "instant").
+  - **Scroll-follow uses `element.scrollIntoView({behavior:'smooth', inline:'center'})`
+    on `#tourR1L`/`#tourR1R`/`#tourFinalCol`, not manual `scrollLeft` math.** This is
+    deliberate: WebKit's RTL `scrollLeft` sign convention is a known cross-browser
+    inconsistency, and this app must render correctly in both directions (see
+    "Direction (RTL/LTR)"). `scrollIntoView` resolves direction internally per spec, so
+    there's no RTL-specific branching needed in `tournament.js` at all — don't
+    reintroduce manual scroll-position math to "optimize" this, it would need to
+    special-case RTL and is exactly the kind of thing this sidesteps on purpose. Scroll
+    triggers exactly twice during a normal (non-skipped) reveal — once when
+    `runDrawReveal()` starts (left wing) and once when the loop reaches `idx===leftCount`
+    (right wing) — never per-slot, matching the "scroll per wing, not a jump on every
+    team" requirement.
 - **The bracket is two-sided, final in the middle** (`buildBracket()` in
   `tournament.js`), not a single linear column-per-round strip. `tour.seeded` is split
   in half; `buildSide()` builds each half's own mini single-elimination tree

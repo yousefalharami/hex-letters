@@ -13,16 +13,15 @@ function storageSet(key,value){
 }
 
 function saveSettings(){
-  storageSet(SETTINGS_KEY,{title:cfg.title,names:cfg.names,t1:cfg.t1,t2:cfg.t2,lang:cfg.lang});
+  storageSet(SETTINGS_KEY,{t1:cfg.t1,t2:cfg.t2,lang:cfg.lang,darkMode:cfg.darkMode});
 }
 function loadSettings(){
   const s=storageGet(SETTINGS_KEY);
   if(!s)return;
-  if(s.title)cfg.title=s.title;
-  if(s.names)cfg.names=s.names;
   if(s.t1)cfg.t1=s.t1;
   if(s.t2)cfg.t2=s.t2;
   if(s.lang)cfg.lang=s.lang;
+  if(typeof s.darkMode==='boolean')cfg.darkMode=s.darkMode;
 }
 
 loadSettings();

@@ -18,11 +18,12 @@ function tourOpen(){
     savedCfg:{t1:cfg.t1,t2:cfg.t2,names:{1:cfg.names[1],2:cfg.names[2]},letters:cfg.letters,rounds:cfg.rounds}});
   tour.teams=makeTeams(4);
   scHome.classList.remove('on');scTournament.classList.add('on');
+  lockLandscape();
   renderTour();
 }
 function tourBack(){
   const i=TOUR_STEPS.indexOf(tour.step);
-  if(i===0){scTournament.classList.remove('on');scHome.classList.add('on');return;}
+  if(i===0){scTournament.classList.remove('on');scHome.classList.add('on');lockPortrait();return;}
   tour.step=TOUR_STEPS[i-1];renderTour();
 }
 function tourNext(){
@@ -138,6 +139,7 @@ function tourDoDraw(){
   tour.step='bracket';
   tourNameTag.textContent=tour.name||'';
   renderBracket(true);
+  runDrawReveal();
 }
 
 /* ---------------- step: bracket ---------------- */
@@ -173,7 +175,7 @@ function roundLabel(matchCount){
   const t=L();
   return matchCount>=8?t.roundOf16:matchCount===4?t.quarter:matchCount===2?t.semi:t.final;
 }
-function renderBracket(animate){
+function renderBracket(revealing){
   const t=L();
   tourTitle.textContent=t.stepBracket;
   if(!tour.bracket){
@@ -182,20 +184,24 @@ function renderBracket(animate){
     tour.queue=built.queue;tour.qi=0;
   }
   const {left,right,final}=tour.bracket;
-  let revealIdx=0;
-  const matchBox=m=>{
-    const cls=animate?' tourReveal':'';
-    const style=animate?` style="animation-delay:${revealIdx++*70}ms"`:'';
-    return `<div class="tourMatch${cls}"${style}>
-    <div class="tourMatchTeam${m.winner&&m.winner===m.a?' winner':''}" style="--c:${m.a?m.a.color:'var(--line)'}">${m.a?esc(m.a.name):t.tbd}</div>
-    <div class="tourMatchTeam${m.winner&&m.winner===m.b?' winner':''}" style="--c:${m.b?m.b.color:'var(--line)'}">${m.b?esc(m.b.name):t.tbd}</div>
-  </div>`;
+  let slotN=0;
+  const teamCell=(team,winner,id)=>{
+    const idAttr=id?` id="${id}"`:'';
+    const content=id?'':(team?esc(team.name):t.tbd);
+    return `<div class="tourMatchTeam${winner&&winner===team?' winner':''}"${idAttr} style="--c:${team?team.color:'var(--line)'}">${content}</div>`;
   };
-  const sideCol=round=>`<div class="tourRound">
-    <div class="tourRoundLabel">${roundLabel(round.length*2)}</div>
-    ${round.map(matchBox).join('')}
+  const matchBox=(m,ids)=>`<div class="tourMatch">
+    ${teamCell(m.a,m.winner,ids&&ids[0])}
+    ${teamCell(m.b,m.winner,ids&&ids[1])}
   </div>`;
-  const finalCol=`<div class="tourRound tourFinalCol">
+  const sideCol=(round,roundIdx,wing)=>`<div class="tourRound"${roundIdx===0?` id="tourR1${wing}"`:''}>
+    <div class="tourRoundLabel">${roundLabel(round.length*2)}</div>
+    ${round.map(m=>{
+      const ids=(revealing&&roundIdx===0)?['tourSlot'+(slotN++),'tourSlot'+(slotN++)]:null;
+      return matchBox(m,ids);
+    }).join('')}
+  </div>`;
+  const finalCol=`<div class="tourRound tourFinalCol" id="tourFinalCol">
     <div class="tourRoundLabel">${t.final}</div>
     ${matchBox(final)}
   </div>`;
@@ -213,10 +219,13 @@ function renderBracket(animate){
         <button class="tourNavNext" id="tourStartBtn">${t.tourNextMatch}</button></div>`;
   tourBody.innerHTML=`
     <div class="tourStep">
-      <div class="tourBracket">
-        ${left.map(sideCol).join('')}
-        ${finalCol}
-        ${right.slice().reverse().map(sideCol).join('')}
+      <div class="tourBracketWrap">
+        <div class="tourBracket" id="tourBracketEl">
+          ${left.map((round,i)=>sideCol(round,i,'L')).join('')}
+          ${finalCol}
+          ${right.slice().reverse().map((round,i)=>sideCol(round,right.length-1-i,'R')).join('')}
+        </div>
+        ${revealing?`<button class="tourSkipHint" id="tourSkipBtn">${t.tourSkip}</button>`:''}
       </div>
       ${navHtml}
     </div>`;
@@ -231,6 +240,70 @@ function renderBracket(animate){
   }
 }
 
+/* ---------------- draw reveal animation (Style B: shuffle-and-lock) ---------------- */
+function runDrawReveal(){
+  const {left,right}=tour.bracket;
+  const slots=[];
+  left[0].forEach(m=>slots.push(m.a,m.b));
+  const leftCount=slots.length;
+  right[0].forEach(m=>slots.push(m.a,m.b));
+  const ids=slots.map((_,i)=>'tourSlot'+i);
+  const pool=tour.seeded.map(tm=>tm.name);
+  const reduced=window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const PER=750, FLICKER=reduced?0:500;
+
+  let finished=false,cancelCurrent=null;
+  const wrap=document.querySelector('.tourBracketWrap');
+  const skipBtn=document.getElementById('tourSkipBtn');
+
+  function finishAll(){
+    if(finished)return;
+    finished=true;
+    if(cancelCurrent){cancelCurrent();cancelCurrent=null;}
+    renderBracket(false);
+    const finalEl=document.getElementById('tourFinalCol');
+    if(finalEl)finalEl.scrollIntoView({behavior:'smooth',inline:'center',block:'nearest'});
+  }
+  if(skipBtn)skipBtn.onclick=finishAll;
+  if(wrap)wrap.onclick=finishAll;
+
+  const leftFirstCol=document.getElementById('tourR1L');
+  if(leftFirstCol)leftFirstCol.scrollIntoView({behavior:'smooth',inline:'center',block:'nearest'});
+
+  function revealOne(idx){
+    if(finished)return;
+    if(idx>=slots.length){finishAll();return;}
+    if(idx===leftCount){
+      const rightFirstCol=document.getElementById('tourR1R');
+      if(rightFirstCol)rightFirstCol.scrollIntoView({behavior:'smooth',inline:'center',block:'nearest'});
+    }
+    const el=document.getElementById(ids[idx]);
+    const team=slots[idx];
+    if(!el){revealOne(idx+1);return;}
+    let tickTimer=null;
+    const doLock=()=>{
+      if(tickTimer){clearInterval(tickTimer);tickTimer=null;}
+      el.classList.remove('revealing');
+      el.textContent=team.name;
+      el.classList.add('locking');
+    };
+    if(FLICKER>0){
+      el.classList.add('revealing');
+      tickTimer=setInterval(()=>{el.textContent=pool[Math.floor(Math.random()*pool.length)];},60);
+    }else{
+      doLock();
+    }
+    const lockTimer=FLICKER>0?setTimeout(doLock,FLICKER):null;
+    const advanceTimer=setTimeout(()=>{cancelCurrent=null;revealOne(idx+1);},PER);
+    cancelCurrent=()=>{
+      if(tickTimer)clearInterval(tickTimer);
+      if(lockTimer)clearTimeout(lockTimer);
+      clearTimeout(advanceTimer);
+    };
+  }
+  revealOne(0);
+}
+
 /* ---------------- playing bracket matches ---------------- */
 function tourLaunchMatch(m){
   cfg.names[1]=m.a.name;cfg.names[2]=m.b.name;
@@ -240,12 +313,14 @@ function tourLaunchMatch(m){
   btnExit.onclick=tourConfirmExit;homeBtn.onclick=tourConfirmExit;
   againBtn.onclick=startRound;
   scTournament.classList.remove('on');scGame.classList.add('on');
+  lockLandscape();
   applyColors();
   newMatch();
   sideTitle.textContent=tour.name||cfg.title[cfg.lang];
 }
 function tourReturnToBracket(){
   scGame.classList.remove('on');scTournament.classList.add('on');
+  lockLandscape();
   tour.step='bracket';
   renderTour();
 }
@@ -291,6 +366,7 @@ function tourConfirmExit(){
 function tourFinishTournament(){
   tourResetState();
   scTournament.classList.remove('on');scHome.classList.add('on');
+  lockPortrait();
 }
 
 /* ---------------- dispatch ---------------- */

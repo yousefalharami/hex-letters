@@ -1,17 +1,18 @@
 /* ---------------- config ---------------- */
-const PRESETS1=["#F2913C","#E0533D","#E8B23A","#C86BE0","#3D8BE0","#E24C6B","#D64545","#F2C14E","#9B59B6","#EF7FA8"];
+const PRESETS1=["#F2913C","#E0533D","#E8B23A","#C86BE0","#3D8BE0","#E24C6B","#16A085","#7B68EE","#9B59B6","#EF7FA8"];
 const PRESETS2=["#63BF8E","#3FA9C9","#8FCB4A","#5E7CE2","#26A69A","#B0BEC5","#2E8B57","#4FC3F7","#7E57C2","#78909C"];
-const cfg={t1:PRESETS1[0],t2:PRESETS2[0],rounds:3,letters:"ar",lang:"ar",
+const cfg={t1:PRESETS1[0],t2:PRESETS2[0],rounds:3,letters:"ar",lang:"ar",darkMode:false,
            title:{ar:"خلية الحروف",en:"Letter Hive"},names:{1:"",2:""}};
 const L=()=>T[cfg.lang];
 const teamName=team=>cfg.names[team]||L()[team===1?'t1':'t2'];
 const teamLabel=team=>cfg.names[team]||'';
+const roundOrdinal=n=>(L().roundOrdinals&&L().roundOrdinals[n-1])||n;
 function persistSettings(){if(typeof saveSettings==='function')saveSettings();}
 const COLOR_NAMES={
   "#F2913C":{ar:"برتقالي",en:"Orange"},"#E0533D":{ar:"أحمر",en:"Red"},
   "#E8B23A":{ar:"كهرماني",en:"Amber"},"#C86BE0":{ar:"بنفسجي فاتح",en:"Orchid"},
   "#3D8BE0":{ar:"أزرق",en:"Blue"},"#E24C6B":{ar:"قرمزي",en:"Crimson"},
-  "#D64545":{ar:"أحمر داكن",en:"Scarlet"},"#F2C14E":{ar:"ذهبي",en:"Gold"},
+  "#16A085":{ar:"فيروزي",en:"Turquoise"},"#7B68EE":{ar:"أزرق بنفسجي",en:"Periwinkle"},
   "#9B59B6":{ar:"بنفسجي",en:"Violet"},"#EF7FA8":{ar:"زهري",en:"Pink"},
   "#63BF8E":{ar:"أخضر",en:"Green"},"#3FA9C9":{ar:"سماوي",en:"Cyan"},
   "#8FCB4A":{ar:"ليموني",en:"Lime"},"#5E7CE2":{ar:"نيلي",en:"Indigo"},
@@ -40,6 +41,11 @@ function applyColors(){
   document.documentElement.style.setProperty('--t2',cfg.t2);
   if(state.letters.length) drawBoard(), sync();
 }
+function paintDarkMode(){
+  darkModeBtn.classList.toggle('on',cfg.darkMode);
+  darkModeBtn.setAttribute('aria-pressed',cfg.darkMode?'true':'false');
+  darkModeLbl.textContent=L().darkMode;
+}
 function applyLang(){
   const t=L();
   document.documentElement.lang=cfg.lang;
@@ -53,10 +59,11 @@ function applyLang(){
   name1.placeholder=t.t1; name2.placeholder=t.t2;
   qbBtn.textContent=t.qbTitle; onlineBtn.textContent=t.onlineTitle; qbCardTitle.textContent=t.qbTitle;
   qbCardSub.textContent=t.qbSoon; qbClose.textContent=t.ok;
-  n1.textContent=teamLabel(1); n2.textContent=teamLabel(2); b1.textContent=teamLabel(1); b2.textContent=teamLabel(2);
-  cRound.textContent=t.round; cOf.textContent=t.of+cfg.rounds;
+  b1.textContent=teamLabel(1); b2.textContent=teamLabel(2);
+  cRound.textContent=t.round; roundNo.textContent=roundOrdinal(state.round);
   btnNew.textContent=t.newR; btnExit.textContent=t.exit; undoBtn.textContent=t.undo;
   againBtn.textContent=t.next; homeBtn.textContent=t.home;
+  paintDarkMode();
 }
 swatchRow(sw1,PRESETS1,'t1'); swatchRow(sw2,PRESETS2,'t2');
 segRounds.onclick=e=>{if(e.target.dataset.v){cfg.rounds=+e.target.dataset.v;paintSel();applyLang();}};
@@ -68,7 +75,8 @@ name2.addEventListener('input',()=>{cfg.names[2]=name2.value.trim();persistSetti
 qbBtn.onclick=()=>{qbCardTitle.textContent=L().qbTitle;qbOverlay.classList.add('show');};
 onlineBtn.onclick=()=>{qbCardTitle.textContent=L().onlineTitle;qbOverlay.classList.add('show');};
 qbClose.onclick=()=>qbOverlay.classList.remove('show');
-startBtn.onclick=()=>{newMatch();scHome.classList.remove('on');scGame.classList.add('on');};
+startBtn.onclick=()=>{scHome.classList.remove('on');scGame.classList.add('on');newMatch();lockLandscape();};
+darkModeBtn.onclick=()=>{cfg.darkMode=!cfg.darkMode;paintDarkMode();sync();persistSettings();};
 
 /* ---------------- game state ---------------- */
 const state={owner:Array(25).fill(null),letters:[],sel:null,round:1,hist:[],done:false,over:false};
@@ -93,12 +101,14 @@ function pick(i){if(state.done||state.owner[i])return;state.sel=(state.sel===i?n
 function sync(){
   const t=L();
   state.owner.forEach((o,i)=>{
-    document.getElementById('h'+i).setAttribute('fill',state.sel===i?"#FFD60A":o===1?cfg.t1:o===2?cfg.t2:"#fff");
+    const neutral=state.sel!==i&&!o;
+    const cell=document.getElementById('h'+i);
+    cell.setAttribute('fill',state.sel===i?"#FFD60A":o===1?cfg.t1:o===2?cfg.t2:(cfg.darkMode?"#000":"#fff"));
+    cell.setAttribute('stroke',cfg.darkMode?"#fff":"#000");
     const el=document.getElementById('lt'+i),letter=state.letters[i];
-    el.textContent=letter;el.setAttribute('dy',/[A-Za-z]/.test(letter)?'15':'0');});
-  s1.textContent=state.owner.filter(x=>x===1).length;
-  s2.textContent=state.owner.filter(x=>x===2).length;
-  roundNo.textContent=state.round; cOf.textContent=t.of+cfg.rounds;
+    el.textContent=letter;el.setAttribute('dy','0');
+    el.setAttribute('fill',neutral&&cfg.darkMode?"#fff":"#000");});
+  roundNo.textContent=roundOrdinal(state.round);
   const has=state.sel!==null&&!state.done;
   tile.textContent=has?state.letters[state.sel]:"—";tile.classList.toggle('live',has);
   b1.classList.toggle('live',has);b2.classList.toggle('live',has);
@@ -113,7 +123,6 @@ function award(team){
   undoSnap={
     owner:state.owner.slice(),sel:state.sel,round:state.round,
     hist:state.hist.map(h=>({...h})),done:state.done,over:state.over,
-    t1on:t1.classList.contains('on'),t2on:t2.classList.contains('on'),
     overlayShown:overlay.classList.contains('show')
   };
   undoBtn.disabled=false;
@@ -129,7 +138,6 @@ function award(team){
   againBtn.style.display=state.over?'none':'';
   homeBtn.textContent=state.over?t.home:t.home;
   overlay.classList.add('show');
-  t1.classList.toggle('on',team===1);t2.classList.toggle('on',team===2);
   sync();
   if(state.over&&typeof onMatchOver==='function')onMatchOver(team);
 }
@@ -139,7 +147,6 @@ function undoAward(){
   Object.assign(state,{owner:undoSnap.owner,sel:undoSnap.sel,round:undoSnap.round,
     hist:undoSnap.hist,done:undoSnap.done,over:undoSnap.over});
   overlay.classList.toggle('show',undoSnap.overlayShown);
-  t1.classList.toggle('on',undoSnap.t1on);t2.classList.toggle('on',undoSnap.t2on);
   sync();
   undoSnap=null;undoBtn.disabled=true;
 }
@@ -148,17 +155,16 @@ function startRound(){
   if(state.done)state.round++;
   state.owner=Array(25).fill(null);state.sel=null;state.done=false;
   deal();overlay.classList.remove('show');
-  t1.classList.add('on');t2.classList.remove('on');
   sync();
   undoSnap=null;undoBtn.disabled=true;
 }
 function newMatch(){
   Object.assign(state,{owner:Array(25).fill(null),sel:null,round:1,hist:[],done:false,over:false});
   deal();drawBoard();applyLang();overlay.classList.remove('show');
-  t1.classList.add('on');t2.classList.remove('on');sync();
+  sync();
   undoSnap=null;undoBtn.disabled=true;
 }
-function goHome(){scGame.classList.remove('on');scHome.classList.add('on');}
+function goHome(){scGame.classList.remove('on');scHome.classList.add('on');lockPortrait();}
 b1.onclick=()=>award(1); b2.onclick=()=>award(2);
 btnNew.onclick=startRound; againBtn.onclick=startRound;
 btnExit.onclick=goHome; homeBtn.onclick=goHome;

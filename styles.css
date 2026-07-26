@@ -4,12 +4,28 @@
     --t1:#F2913C;--t2:#63BF8E;
   }
   *{box-sizing:border-box}
-  body{margin:0;background:var(--ink);color:var(--bone);font-family:Tajawal,system-ui,sans-serif;min-height:100vh}
+  html,body{overflow-x:hidden;max-width:100%;touch-action:manipulation}
+  body{margin:0;background:var(--ink);color:var(--bone);font-family:Tajawal,system-ui,sans-serif;min-height:100vh;
+       padding-left:env(safe-area-inset-left);padding-right:env(safe-area-inset-right);
+       padding-top:env(safe-area-inset-top);padding-bottom:env(safe-area-inset-bottom)}
   .screen{display:none}.screen.on{display:block}
 
+  /* ---------- splash ---------- */
+  .splash{position:fixed;inset:0;z-index:9999;background:var(--ink);display:grid;place-items:center;
+          transition:transform .6s cubic-bezier(.4,0,.2,1);will-change:transform}
+  .splash .hexmark{width:88px;height:88px;display:block;animation:splashPop .5s cubic-bezier(.34,1.56,.64,1) both}
+  .splash.hide{transform:translateY(-100%)}
+  @keyframes splashPop{from{opacity:0;transform:scale(.7)}to{opacity:1;transform:scale(1)}}
+  @media (prefers-reduced-motion:reduce){
+    .splash{transition:none}.splash .hexmark{animation:none}
+  }
+
   /* ---------- home ---------- */
-  .home{min-height:100vh;display:grid;place-items:center;padding:24px;
+  .home{position:relative;min-height:100vh;display:grid;place-items:center;padding:24px;
         background:radial-gradient(120% 80% at 50% -10%, #1A222C 0%, var(--ink) 60%)}
+  .home::before{content:"";position:absolute;left:0;right:0;bottom:100%;height:60px;
+                background:radial-gradient(120% 260% at 50% 100%, #1A222C 0%, var(--ink) 60%);
+                pointer-events:none}
   .home-in{width:100%;max-width:560px}
   .brand{text-align:center;margin-bottom:26px}
   .hexmark{width:64px;height:64px;margin:0 auto 14px;display:block}
@@ -29,13 +45,14 @@
   .seg{display:flex;background:var(--panel-2);border:1px solid var(--line);border-radius:10px;padding:3px;gap:3px}
   .seg button{border:0;background:none;color:var(--mute);font:700 13px Tajawal;padding:7px 14px;border-radius:8px;cursor:pointer}
   .seg button.on{background:var(--bone);color:#12161B}
-  .swatches{display:flex;gap:7px}
-  .sw{width:26px;height:26px;border-radius:8px;border:2px solid transparent;cursor:pointer;padding:0}
+  .swatches{display:flex;gap:7px;flex-wrap:wrap;max-width:min(100%,calc(5*26px + 4*7px))}
+  .sw{width:26px;height:26px;border-radius:8px;border:2px solid transparent;cursor:pointer;padding:0;flex:none}
   .sw.on{border-color:var(--bone)}
-  .teamline{display:flex;align-items:center;gap:10px}
-  .dot{width:12px;height:12px;border-radius:50%}
-  .teamName{width:150px;background:var(--panel-2);border:1px solid var(--line);border-radius:8px;
-            padding:6px 10px;font:700 13px Tajawal;color:var(--bone)}
+  .teamline{display:flex;align-items:center;gap:10px;flex-wrap:wrap;max-width:100%}
+  .dot{width:12px;height:12px;border-radius:50%;flex:none}
+  .teamName{width:clamp(90px,32vw,150px);max-width:100%;min-width:0;box-sizing:border-box;
+            background:var(--panel-2);border:1px solid var(--line);border-radius:8px;
+            padding:6px 10px;font:700 16px Tajawal;color:var(--bone)}
   .teamName::placeholder{color:var(--mute)}
   .hint{font:500 11px Tajawal;color:var(--mute);flex-basis:100%}
   .bottomRow{margin-bottom:0}
@@ -45,13 +62,19 @@
   .qbBox:hover{color:var(--bone);border-color:var(--mute)}
 
   /* ---------- game ---------- */
-  .wrap{display:grid;grid-template-columns:clamp(150px,18vw,260px) 1fr;gap:clamp(10px,1.6vw,22px);padding:clamp(10px,1.6vw,22px);max-width:1500px;margin:0 auto;align-items:start}
-  html[dir=ltr] .wrap{grid-template-columns:1fr clamp(150px,18vw,260px)}
+  .wrap{display:grid;grid-template-columns:clamp(150px,18vw,260px) minmax(0,1fr);gap:0;padding:0;max-width:1500px;margin:0 auto;align-items:stretch;
+        height:calc(100vh - env(safe-area-inset-top) - env(safe-area-inset-bottom))}
+  html[dir=ltr] .wrap{grid-template-columns:minmax(0,1fr) clamp(150px,18vw,260px)}
   html[dir=ltr] .panel{order:2}
-  .stage{display:flex;flex-direction:column;gap:10px}
-  .boardWrap{position:relative;width:min(100%,calc(min(93vh,940px) * 611.37 / 532));margin-left:auto;margin-right:0}
-  .board{background:#fff;border-radius:16px;overflow:hidden;border:1px solid var(--line)}
-  .board svg{display:block;width:100%;height:auto}
+  .stage{display:flex;flex-direction:column;gap:10px;min-height:0;position:relative;
+         margin-top:calc(-1 * env(safe-area-inset-top));margin-bottom:calc(-1 * env(safe-area-inset-bottom));
+         margin-left:calc(-1 * env(safe-area-inset-left));
+         height:calc(100% + env(safe-area-inset-top) + env(safe-area-inset-bottom));
+         width:calc(100% + env(safe-area-inset-left))}
+  .stage::before{content:"";position:absolute;left:0;right:0;bottom:100%;height:44px;background:var(--t1);pointer-events:none}
+  .boardWrap{position:relative;width:100%;height:100%;min-height:0}
+  .board{background:#fff;width:100%;height:100%}
+  .board svg{display:block;width:100%;height:100%}
   .bar{display:flex;gap:8px}
   .ghost{flex:1;background:none;border:1px solid var(--line);color:var(--mute);border-radius:10px;padding:clamp(7px,.8vw,11px);font:600 clamp(10px,.9vw,13px) Tajawal;cursor:pointer}
   .ghost:hover{color:var(--bone);border-color:var(--mute)}
@@ -67,19 +90,20 @@
   .acts{display:flex;gap:10px}
   .solid{flex:1;border:0;border-radius:11px;padding:clamp(9px,1vw,13px);font:700 clamp(11px,1vw,15px) Tajawal;color:#121212;background:var(--c);cursor:pointer}
 
-  .panel{display:flex;flex-direction:column;gap:clamp(8px,1vw,14px)}
+  .panel{display:flex;flex-direction:column;gap:clamp(8px,1vw,14px);overflow-y:auto;overflow-x:hidden;min-height:0;
+         padding:clamp(10px,1.6vw,22px);
+         margin-right:calc(-1 * env(safe-area-inset-right))}
   .sideTitle{margin:0;text-align:center;font:900 clamp(22px,2.6vw,36px) Tajawal;letter-spacing:-.01em;
-             overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0;
+             text-wrap:balance;min-width:0;
              background:linear-gradient(100deg,var(--t1),var(--t2));-webkit-background-clip:text;background-clip:text;color:transparent}
-  .chip{align-self:flex-start;font:600 clamp(10px,.85vw,13px) Tajawal;color:var(--mute);background:var(--panel);border:1px solid var(--line);border-radius:999px;padding:5px 12px}
-  .chip b{color:var(--bone);font-family:Rajdhani;font-size:clamp(12px,1.1vw,16px);margin-inline-start:6px}
-  .team{position:relative;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:clamp(10px,1.2vw,18px);display:flex;align-items:center;justify-content:space-between;gap:8px;overflow:hidden;transition:border-color .18s,background .18s}
-  .team::before{content:"";position:absolute;inset-block:0;inset-inline-start:0;width:5px;background:var(--c);opacity:.45}
-  .team.on{background:var(--panel-2);border-color:var(--c)}
-  .team.on::before{opacity:1}
-  .team h3{margin:0;font:700 clamp(12px,1.15vw,17px) Tajawal;flex:1;min-width:0;
-           overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-  .score{flex:none;font-family:Rajdhani;font-weight:700;font-size:clamp(30px,3.6vw,54px);line-height:.9;color:var(--c);font-variant-numeric:tabular-nums}
+  .chipRow{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+  .chip{align-self:flex-start;font:600 clamp(9px,.7vw,11px) Tajawal;color:var(--mute);background:var(--panel);border:1px solid var(--line);border-radius:999px;padding:3px 9px;white-space:nowrap}
+  .chip b{color:var(--bone);font-family:Rajdhani;font-size:clamp(10px,.85vw,13px);margin-inline-start:5px}
+  .modeToggle{display:flex;align-items:center;gap:4px;font:600 clamp(9px,.7vw,11px) Tajawal;color:var(--mute);
+              background:var(--panel);border:1px solid var(--line);border-radius:999px;padding:3px 9px;
+              white-space:nowrap;cursor:pointer;transition:background .15s,color .15s,border-color .15s}
+  .modeToggle .modeIcon{font-size:1.1em;line-height:1}
+  .modeToggle.on{background:var(--bone);color:#12161B;border-color:var(--bone)}
   .now{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:clamp(10px,1.1vw,16px);display:flex;align-items:center;gap:clamp(8px,1vw,14px)}
   .tile{width:clamp(44px,5vw,74px);height:clamp(50px,5.6vw,84px);flex:none;display:grid;place-items:center;padding-top:8px;border-radius:12px;background:var(--panel-2);border:1px dashed var(--line);font:900 clamp(24px,2.6vw,40px) Tajawal;color:var(--mute)}
   .tile.live{background:var(--pick);border:1px solid #C9A700;color:#161B22}
@@ -87,12 +111,12 @@
   .btn{flex:1;min-width:0;min-height:clamp(30px,3vw,38px);border:0;border-radius:10px;padding:clamp(7px,.8vw,11px) 6px;font:700 clamp(11px,1vw,14px) Tajawal;color:#121212;cursor:pointer;opacity:.35;pointer-events:none;transition:opacity .18s;
        overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .btn.live{opacity:1;pointer-events:auto}
-  .log{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:clamp(10px,1.1vw,16px)}
-  .log header{display:flex;align-items:center;justify-content:center;margin-bottom:10px}
-  .tally{font-family:Rajdhani;font-weight:700;font-size:clamp(36px,4.2vw,58px);font-variant-numeric:tabular-nums}
-  .tally .x{color:var(--line);margin:0 14px}
-  .log ol{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px;max-height:190px;overflow:auto}
-  .log li{display:flex;align-items:center;gap:8px;font:500 clamp(10px,.9vw,13px) Tajawal;color:var(--mute);border-top:1px solid var(--line);padding-top:6px}
+  .log{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:clamp(7px,.8vw,11px)}
+  .log header{display:flex;align-items:center;justify-content:center;margin-bottom:6px}
+  .tally{font-family:Rajdhani;font-weight:700;font-size:clamp(34px,4.2vw,54px);font-variant-numeric:tabular-nums}
+  .tally .x{color:var(--line);margin:0 10px}
+  .log ol{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:4px;max-height:80px;overflow:auto}
+  .log li{display:flex;align-items:center;gap:6px;font:500 clamp(9px,.8vw,11px) Tajawal;color:var(--mute);border-top:1px solid var(--line);padding-top:4px}
   .log li:first-child{border-top:0;padding-top:0}
   .log li i{width:9px;height:9px;border-radius:50%;flex:none}
   .log li b{color:var(--bone);margin-inline-start:auto}
@@ -117,24 +141,35 @@
                cursor:pointer;background:linear-gradient(100deg,var(--t1),var(--t2))}
   .tourNavNext:disabled{opacity:.4;cursor:not-allowed}
 
-  .tourTeams{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-  @media (max-width:480px){.tourTeams{grid-template-columns:1fr}}
+  .tourTeams{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:10px}
+  @media (max-width:480px){.tourTeams{grid-template-columns:minmax(0,1fr)}}
   .tourTeamRow{display:flex;align-items:center;gap:8px;background:var(--panel);border:1px solid var(--line);
                border-radius:10px;padding:8px 10px}
   .tourNameInput{flex:1;min-width:0;background:var(--panel-2);border:1px solid var(--line);border-radius:8px;
-                 padding:6px 8px;font:700 13px Tajawal;color:var(--bone)}
+                 padding:6px 8px;font:700 16px Tajawal;color:var(--bone)}
   .tourSwatchToggle{width:26px;height:26px;border-radius:8px;border:2px solid var(--bone);cursor:pointer;flex:none;padding:0}
   .tourNameBig{width:100%;text-align:center;padding:14px;font:700 clamp(16px,2vw,22px) Tajawal}
-  .tourColorPicker{display:grid;grid-template-columns:repeat(8,1fr);gap:8px;background:var(--panel);
+  .tourColorPicker{display:grid;grid-template-columns:repeat(8,minmax(0,1fr));gap:8px;background:var(--panel);
                    border:1px solid var(--line);border-radius:12px;padding:10px}
   .tourColorPicker .sw{width:auto;aspect-ratio:1;height:auto}
   .tourColorPicker[hidden]{display:none}
 
   .tourNameTag{margin:0 0 4px;text-align:center;font:600 13px Tajawal;color:var(--mute)}
 
+  .tourBracketWrap{position:relative}
   .tourBracket{display:flex;justify-content:center;gap:18px;overflow-x:auto;padding-bottom:8px}
-  .tourReveal{animation:tourReveal .45s ease both}
-  @keyframes tourReveal{from{opacity:0;transform:translateY(12px) scale(.94)}to{opacity:1;transform:translateY(0) scale(1)}}
+  .tourSkipHint{position:absolute;top:6px;inset-inline-end:6px;font:600 11px Tajawal;color:var(--mute);
+               background:var(--panel-2);border:1px solid var(--line);border-radius:999px;padding:4px 10px;
+               cursor:pointer;z-index:2;transition:color .15s,border-color .15s}
+  .tourSkipHint:hover{color:var(--bone);border-color:var(--mute)}
+  .tourMatchTeam.revealing{color:var(--mute)}
+  .tourMatchTeam.locking{animation:tourLockPop .28s cubic-bezier(.34,1.56,.64,1) both,tourLockFlash .6s ease both}
+  @keyframes tourLockPop{0%{transform:scale(.86)}55%{transform:scale(1.1)}100%{transform:scale(1)}}
+  @keyframes tourLockFlash{0%{background:var(--c);color:#101317}100%{background:var(--panel-2);color:var(--bone)}}
+  @keyframes tourFadeIn{from{opacity:0}to{opacity:1}}
+  @media (prefers-reduced-motion:reduce){
+    .tourMatchTeam.locking{animation:tourFadeIn .2s ease both}
+  }
   .tourRound{display:flex;flex-direction:column;justify-content:space-around;gap:12px;min-width:150px}
   .tourFinalCol{justify-content:center;min-width:170px}
   .tourFinalCol .tourMatch{border-color:var(--pick);box-shadow:0 0 0 1px var(--pick)}
