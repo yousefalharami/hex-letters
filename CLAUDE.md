@@ -558,18 +558,32 @@ an outer wrapper with its own separate toolchain (npm, Xcode).
   hosting (e.g. GitHub Pages, or any static host) before the URL can go into App Store
   Connect — that hosting step is still outstanding, out of scope until asked.
 - **Orientation is per-screen, not a single static lock**: `Info.plist`'s
-  `UISupportedInterfaceOrientations` (and `~ipad` variant) allow *all three*
-  (`Portrait`, `LandscapeLeft`, `LandscapeRight`) — this was originally a
-  landscape-only static lock (portrait removed entirely) but changed to allow
-  portrait again once the requirement became "only the home screen is portrait,
-  every other screen force-locks to landscape." Since a Capacitor app is a single
-  `WKWebView`/view controller, there's no such thing as "this native screen is
-  portrait, that one is landscape" at the OS level — the *supported* list has to
-  include everything any screen might lock to, and `orientation.js` actively locks
-  to the right one as the app navigates between screens (see below). Don't narrow
+  `UISupportedInterfaceOrientations` (iPhone) allows *three* (`Portrait`,
+  `LandscapeLeft`, `LandscapeRight`) — this was originally a landscape-only static
+  lock (portrait removed entirely) but changed to allow portrait again once the
+  requirement became "only the home screen is portrait, every other screen
+  force-locks to landscape." Since a Capacitor app is a single `WKWebView`/view
+  controller, there's no such thing as "this native screen is portrait, that one is
+  landscape" at the OS level — the *supported* list has to include everything any
+  screen might lock to, and `orientation.js` actively locks to the right one as the
+  app navigates between screens (see below). Don't narrow
   `UISupportedInterfaceOrientations` back down without also removing the
   corresponding `lockPortrait()`/`lockLandscape()` calls, or a screen could try to
   lock to an orientation the OS no longer allows.
+  - **`UISupportedInterfaceOrientations~ipad` (iPad) is a different, wider list: all
+    four**, including `PortraitUpsideDown` — this is *not* symmetric with the iPhone
+    key, on purpose. App Store review (rejection code 90474) requires iPad apps to
+    declare all four orientations *and actually behave accordingly* — not just declare
+    them while a JS-driven lock keeps the real behavior landscape-only. A device-aware
+    "lock iPad to landscape everywhere" was tried and **deliberately reverted**: Apple's
+    review can and does test actual rotation behavior on iPad, not just the plist
+    declaration, so a declared-four/behaves-as-one mismatch is exactly what gets an app
+    rejected again. `orientation.js` intentionally has **no device detection** — the
+    exact same `lockPortrait()`/`lockLandscape()` per-screen calls run identically on
+    iPhone and iPad, so iPad genuinely rotates through all four declared orientations
+    on the home screen like iPhone does. Don't reintroduce iPad-specific orientation
+    branching without being asked again — it was already tried and found to defeat the
+    purpose of this very fix.
   - Verified no `INFOPLIST_KEY_UISupportedInterfaceOrientations*`/
     `GENERATE_INFOPLIST_FILE` build settings exist in `project.pbxproj` that would
     generate a competing Info.plist and shadow the file directly — if either ever
@@ -595,6 +609,150 @@ an outer wrapper with its own separate toolchain (npm, Xcode).
     board-width) dark strip ever reappears, check this toggle before reaching for
     more CSS. Reuses the exact same per-screen call sites as orientation lock, so no
     other file needed to change to wire it up.
+  - **`orientation.js` also listens for the plugin's own `screenOrientationChange`
+    event** (fires on any physical device rotation, from `UIDevice.
+    orientationDidChangeNotification` on the native side — regardless of whether the
+    interface orientation is actually allowed to follow it) and re-calls
+    `lockLandscape()` whenever it fires **while `#scGame` specifically is the active
+    screen** (`scGame.classList.contains('on')`). This is a defensive layer on top of
+    the one-time `lockLandscape()` call already made when entering the game screen —
+    added because the game board must never present in portrait on *any* device,
+    iPad included, and a single lock-on-entry call plus an already-declared
+    four-orientation iPad `Info.plist` is a combination worth reinforcing rather than
+    trusting blindly. **Deliberately scoped to `#scGame` only** — menu (`#scHome`) and
+    tournament setup/bracket (`#scTournament`) screens get no equivalent listener, so
+    don't add one for them without being asked; their existing single lock-on-transition
+    calls are untouched and still the only orientation handling those screens get.
+  - **`@capacitor/screen-orientation`'s native Swift source is hand-patched, directly
+    inside `node_modules`** — `node_modules/@capacitor/screen-orientation/ios/Sources/
+    ScreenOrientationPlugin/ScreenOrientation.swift`. This is a deliberate, necessary
+    exception to "never hand-edit vendored code" (see the JS IIFE bundles note right
+    below, which that rule *does* still apply to) — the defensive re-lock listener
+    above was landing but silently **not working on iPad**, traced to two real bugs in
+    the plugin's own `lock()`/`unlock()`:
+    1. `UIApplication.shared.connectedScenes.first as? UIWindowScene` picks an
+       arbitrary scene rather than the one actually hosting the app's content — a
+       no-op on iPhone (single scene, so `.first` is trivially correct) but unreliable
+       on iPad, which is multi-scene-capable (Split View/Slide Over/Stage Manager).
+       Fixed by resolving the scene from the actual view hierarchy instead:
+       `self.capViewController?.view.window?.windowScene`.
+    2. `completion(nil)` was called *unconditionally*, immediately after **dispatching**
+       (not after completing) the async `requestGeometryUpdate` call — so the JS
+       `.lock()`/`.unlock()` promise always resolved "successfully" regardless of
+       whether the native call actually succeeded, meaning a silent native failure was
+       structurally invisible from the JS side. Fixed by only resolving from within the
+       real completion paths (the `#available`/`else` branches), never both.
+    - `setNeedsUpdateOfSupportedInterfaceOrientations()` is iOS 16+ only — must stay
+      *inside* the `#available(iOS 16.0, *)` branch (the deployment target is iOS 15);
+      moving it outside is a real compile error, not just a runtime risk, hit and fixed
+      once already while patching this.
+    - **This patch lives outside version control's normal reach** (`node_modules/` is
+      gitignored) and **will be silently lost on a fresh `npm install`** (a clean
+      clone, CI, or `rm -rf node_modules && npm install`) — there's no `patch-package`
+      or equivalent applying it automatically. If iPad landscape-lock ever mysteriously
+      stops working again after a dependency reinstall, **check this file for the
+      original unpatched bugs before re-diagnosing from scratch** — the fix is exactly
+      these two bugs, already solved once, not a new investigation. A reference copy
+      lives at `patches/ScreenOrientation.swift.patched` (git-tracked, `patches/` isn't
+      gitignored) with restore instructions in `patches/README.md` — restore from there
+      rather than re-deriving the fix from this prose if it's ever lost.
+    - Native-only patch: doesn't touch `vendor/capacitor-screen-orientation.js` (the
+      JS-side browser bundle) at all, since the bug was entirely in the Swift
+      implementation the JS calls into, not in how JS calls it.
+    - **This patch alone did not actually fix iPad** — confirmed after two real-device
+      test rounds post-patch, the game screen still didn't stay landscape on physical
+      rotation. The JS/native orientation lock is accepted as **fundamentally
+      unreliable on iPad** at this point, not a bug still being chased — see the CSS
+      rotation fallback below, which is the actual fix and does not depend on
+      `ScreenOrientation.lock()` working at all. The `lockLandscape()`/`lockPortrait()`
+      calls and the `screenOrientationChange` listener above are **left in place, not
+      removed** — they still work correctly on iPhone (confirmed working there this
+      whole time) and are harmless dead weight on iPad now that the CSS fallback
+      doesn't depend on them; don't strip them out under the assumption they're
+      pointless, they're still doing real work for iPhone.
+  - **CSS rotation fallback (the actual iPad fix)** — `@media (orientation:portrait)`
+    scoped to `#scGame.on` only: rotates the whole game screen 90° and swaps its
+    footprint to `width:100vh;height:100vw` (the viewport's landscape-equivalent
+    dimensions), so the board renders in its existing, unmodified landscape layout
+    regardless of the device's actual physical orientation. `#scGame.on .wrap` is
+    overridden to `height:100%;width:100%` so it fills the now-rotated `#scGame` box
+    instead of computing its own `100vh`-based height (which would be wrong once the
+    parent is a CSS-rotated container, not the raw viewport).
+    - **Pivot from the box's own center, not `top:0;left:0` + a `translate` +
+      `transform-origin:top left`** — a first attempt using the latter was shipped and
+      found visibly broken (white gaps, a hidden sidebar button) because that specific
+      math is wrong: re-deriving the four corners by hand (rotating `(x,y)` 90°
+      clockwise around a `(0,0)` pivot maps to `(y,-x)`) shows that combination lands
+      the whole rotated box in *negative* coordinate space, off to the side of the
+      actual viewport, not covering it. The corrected, hand-verified version centers
+      the box on the viewport first — `top:calc(50vh - 50vw); left:calc(50vw - 50vh)`
+      (which, combined with `width:100vh;height:100vw`, centers the pre-rotation box's
+      *center point* exactly on the viewport's center point — verified algebraically:
+      the box's center resolves to exactly `(50vw, 50vh)` regardless of the vh/vw
+      values), then `transform:rotate(90deg)` around the default `center center`
+      origin. Rotating a box around its own center never moves that center — so the
+      post-rotation box (now visually `W`-wide × `H`-tall, matching the true portrait
+      viewport exactly) is already sitting exactly on top of the viewport, no
+      compensating translate needed. **If this ever needs touching again, re-verify by
+      hand-tracing all four corners through the transform before shipping** — this is
+      exactly the kind of CSS that looks plausible but is silently wrong by a
+      dimension's worth of offset, and the bug is invisible from reading the rule, only
+      from actually rendering it.
+    - **Naturally iPhone-safe with zero device detection**: the rule only ever matches
+      when `#scGame` is active *and* the viewport is portrait — since iPhone's native
+      lock does work, its game-screen viewport is never portrait, so this rule simply
+      never activates there. Don't add explicit iPad/iPhone branching to "make this
+      safer" — the condition itself is already exactly right.
+    - `sizeBoardCanvas()` (`board.js`) needed **no changes** — `getBoundingClientRect()`
+      correctly reports `.stage`'s actual on-screen (post-rotation) box, and the
+      existing `resize` listener already fires naturally when the device physically
+      rotates (the true viewport dimensions genuinely swap), so the board re-fits
+      itself automatically without any new JS wiring for the rotated case.
+    - **`--evw`/`--evh` ("effective vw/vh") custom properties, defined on `:root`**
+      (`--evw:1vw;--evh:1vh;` — real viewport units by default) **and overridden inside
+      `#scGame.on`'s portrait rule** (`--evw:1vh;--evh:1vw;` — swapped). This exists
+      because **raw `vw`/`vh` CSS units always measure the device's true physical
+      viewport — the rotation transform above does not change what they mean to the
+      browser.** A first version of this fix rotated/repositioned the container
+      correctly but left every `clamp(...vw...)` in the game screen (the sidebar
+      column width, every font-size, tile size, padding — the *entire* game section of
+      this file) measuring against the narrow portrait width instead of the effective
+      landscape one. Concretely verified: sidebar width came out ~150px (clamped to its
+      floor) instead of ~215px — a real, visible, hand-calculated ~65px shortfall that
+      exactly matched the reported clipped sidebar buttons and board-not-filling voids.
+      Every `Nvw`/`Nvh` in the "game" section (`.wrap` through `.log li b`, roughly
+      lines 85-142) was mechanically converted to `calc(N * var(--evw))`/
+      `calc(N * var(--evh))` (or bare `var(--evw)`/`var(--evh)` when N=1) — **this
+      covers the entire game screen, not just the sidebar width the bug report singled
+      out**, since the same root cause affects every `vw`/`vh` in that section
+      identically. **New game-screen rules must use `var(--evw)`/`var(--evh)`, never
+      raw `vw`/`vh` directly** — the custom-property indirection is what makes a single
+      swap correct in both the normal and rotated-fallback states; a raw unit bypasses
+      it silently. Home-screen and tournament-screen rules are intentionally untouched
+      (still use raw `vw`/`vh`) since neither of those screens ever gets the rotation
+      treatment — `--evw`/`--evh` would just resolve to their unmodified `:root`
+      defaults there regardless, so converting them would be a no-op, not a fix.
+    - **Known, derived-but-not-yet-implemented residual gap**: `.stage`'s/`.panel`'s
+      `env(safe-area-inset-*)` bleeds (see "Game screen board fill" below) still read
+      the *physical* inset values, which the rotation does not remap. Worked out the
+      correct mapping by hand-tracing the same corner rotation used to verify the
+      container geometry above (rotating clockwise 90°): **device-physical-top ↔
+      content-visual-right, device-bottom ↔ content-visual-left, device-left ↔
+      content-visual-top, device-right ↔ content-visual-bottom.** This was
+      *deliberately not implemented* — it's unverifiable on the iPad (A16) simulator
+      actually used for testing (a Touch ID model with ~zero safe-area inset on every
+      edge, so a bug here would look identical to a correct fix, and a *wrong* mapping
+      could silently regress a future Face-ID iPad test without anyone noticing now).
+      It also can't be the cause of the "voids top and bottom" symptom that motivated
+      this whole fix: per the mapping, the rotated state's visual top/bottom map to the
+      device's physical *left/right* insets, and no iPad model — Face ID or Touch ID —
+      has meaningful left/right physical insets (only iPhone's notch does, and only
+      when physically rotated to real landscape). That symptom was the `--evw`/`--evh`
+      bug above, not this. If a real gap is ever reported specifically on a Face-ID
+      iPad's sidebar edge (`.panel`'s right-bleed or `.stage`'s left-bleed — the two
+      that map to the device's physical *top*, where Face-ID iPads' camera cutout
+      actually lives), implement the mapping above via the same `--s*`-custom-property
+      pattern as `--evw`/`--evh`, not by guessing again from scratch.
   - **`@capacitor/screen-orientation` and `@capacitor/status-bar` are consumed
     without a bundler**, matching this project's no-build-step rule for the *web app*
     itself: `vendor/capacitor.js`, `vendor/capacitor-screen-orientation.js`, and

@@ -2,6 +2,12 @@
     --ink:#0D1014;--panel:#161B22;--panel-2:#1E242D;--line:#2C3440;
     --bone:#ECE6DA;--mute:#8A93A0;--pick:#FFD60A;
     --t1:#F2913C;--t2:#63BF8E;
+    /* "Effective" viewport units: equal to real vw/vh everywhere by default.
+       Overridden (swapped) only inside #scGame.on during the portrait-rotation
+       fallback below, so every clamp()/calc() in the game screen that uses
+       var(--evw)/var(--evh) instead of raw vw/vh automatically sizes against
+       the ROTATED effective viewport, not the device's true physical one. */
+    --evw:1vw;--evh:1vh;
   }
   *{box-sizing:border-box}
   html,body{overflow-x:hidden;max-width:100%;touch-action:manipulation}
@@ -62,9 +68,32 @@
   .qbBox:hover{color:var(--bone);border-color:var(--mute)}
 
   /* ---------- game ---------- */
-  .wrap{display:grid;grid-template-columns:clamp(150px,18vw,260px) minmax(0,1fr);gap:0;padding:0;max-width:1500px;margin:0 auto;align-items:stretch;
-        height:calc(100vh - env(safe-area-inset-top) - env(safe-area-inset-bottom))}
-  html[dir=ltr] .wrap{grid-template-columns:minmax(0,1fr) clamp(150px,18vw,260px)}
+  /* Forced-landscape fallback for the game screen specifically: the native
+     ScreenOrientation lock is unreliable on iPad (see CLAUDE.md), so when the
+     game screen is on-screen and the device/viewport is physically portrait,
+     rotate the whole screen 90deg and swap its footprint to the viewport's
+     landscape-equivalent dimensions, so the board always renders in its
+     existing, correct landscape layout regardless of physical orientation.
+     Scoped to #scGame.on only — never touches the home or tournament
+     screens, and is a no-op whenever the viewport is already landscape
+     (which is always true on iPhone, since its native lock does work). */
+  @media (orientation:portrait){
+    #scGame.on{
+      position:fixed;
+      top:calc(50vh - 50vw);left:calc(50vw - 50vh);
+      width:100vh;height:100vw;
+      transform-origin:center center;
+      transform:rotate(90deg);
+      overflow:hidden;
+      /* swap the effective-unit basis: the rotated box's visual width now
+         equals the true viewport's height, and vice versa */
+      --evw:1vh;--evh:1vw;
+    }
+    #scGame.on .wrap{height:100%;width:100%}
+  }
+  .wrap{display:grid;grid-template-columns:clamp(150px,calc(18 * var(--evw)),260px) minmax(0,1fr);gap:0;padding:0;max-width:1500px;margin:0 auto;align-items:stretch;
+        height:calc(100 * var(--evh) - env(safe-area-inset-top) - env(safe-area-inset-bottom))}
+  html[dir=ltr] .wrap{grid-template-columns:minmax(0,1fr) clamp(150px,calc(18 * var(--evw)),260px)}
   html[dir=ltr] .panel{order:2}
   .stage{display:flex;flex-direction:column;gap:10px;min-height:0;position:relative;
          margin-top:calc(-1 * env(safe-area-inset-top));margin-bottom:calc(-1 * env(safe-area-inset-bottom));
@@ -76,47 +105,47 @@
   .board{background:#fff;width:100%;height:100%}
   .board svg{display:block;width:100%;height:100%}
   .bar{display:flex;gap:8px}
-  .ghost{flex:1;background:none;border:1px solid var(--line);color:var(--mute);border-radius:10px;padding:clamp(7px,.8vw,11px);font:600 clamp(10px,.9vw,13px) Tajawal;cursor:pointer}
+  .ghost{flex:1;background:none;border:1px solid var(--line);color:var(--mute);border-radius:10px;padding:clamp(7px,calc(.8 * var(--evw)),11px);font:600 clamp(10px,calc(.9 * var(--evw)),13px) Tajawal;cursor:pointer}
   .ghost:hover{color:var(--bone);border-color:var(--mute)}
   .ghost:disabled{opacity:.35;cursor:not-allowed;pointer-events:none}
   .overlay{position:absolute;inset:0;display:none;place-items:center;background:rgba(8,10,13,.74);border-radius:16px;padding:20px}
   .overlay.show{display:grid}
   #qbOverlay{position:fixed;border-radius:0}
-  .card{background:var(--panel);border:1px solid var(--line);border-top:5px solid var(--c,var(--t1));border-radius:16px;padding:clamp(18px,2.4vw,32px);text-align:center;max-width:460px;width:100%}
-  .card .kicker{font:600 clamp(10px,.9vw,13px) Tajawal;color:var(--mute);letter-spacing:.04em}
-  .card h2{margin:8px 0 6px;font:900 clamp(20px,2.4vw,34px) Tajawal;color:var(--c);
+  .card{background:var(--panel);border:1px solid var(--line);border-top:5px solid var(--c,var(--t1));border-radius:16px;padding:clamp(18px,calc(2.4 * var(--evw)),32px);text-align:center;max-width:460px;width:100%}
+  .card .kicker{font:600 clamp(10px,calc(.9 * var(--evw)),13px) Tajawal;color:var(--mute);letter-spacing:.04em}
+  .card h2{margin:8px 0 6px;font:900 clamp(20px,calc(2.4 * var(--evw)),34px) Tajawal;color:var(--c);
            overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-  .card p{margin:0 0 18px;font:500 clamp(11px,1vw,15px) Tajawal;color:var(--mute)}
+  .card p{margin:0 0 18px;font:500 clamp(11px,var(--evw),15px) Tajawal;color:var(--mute)}
   .acts{display:flex;gap:10px}
-  .solid{flex:1;border:0;border-radius:11px;padding:clamp(9px,1vw,13px);font:700 clamp(11px,1vw,15px) Tajawal;color:#121212;background:var(--c);cursor:pointer}
+  .solid{flex:1;border:0;border-radius:11px;padding:clamp(9px,var(--evw),13px);font:700 clamp(11px,var(--evw),15px) Tajawal;color:#121212;background:var(--c);cursor:pointer}
 
-  .panel{display:flex;flex-direction:column;gap:clamp(8px,1vw,14px);overflow-y:auto;overflow-x:hidden;min-height:0;
-         padding:clamp(10px,1.6vw,22px);
+  .panel{display:flex;flex-direction:column;gap:clamp(8px,var(--evw),14px);overflow-y:auto;overflow-x:hidden;min-height:0;
+         padding:clamp(10px,calc(1.6 * var(--evw)),22px);
          margin-right:calc(-1 * env(safe-area-inset-right))}
-  .sideTitle{margin:0;text-align:center;font:900 clamp(22px,2.6vw,36px) Tajawal;letter-spacing:-.01em;
+  .sideTitle{margin:0;text-align:center;font:900 clamp(22px,calc(2.6 * var(--evw)),36px) Tajawal;letter-spacing:-.01em;
              text-wrap:balance;min-width:0;
              background:linear-gradient(100deg,var(--t1),var(--t2));-webkit-background-clip:text;background-clip:text;color:transparent}
   .chipRow{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
-  .chip{align-self:flex-start;font:600 clamp(9px,.7vw,11px) Tajawal;color:var(--mute);background:var(--panel);border:1px solid var(--line);border-radius:999px;padding:3px 9px;white-space:nowrap}
-  .chip b{color:var(--bone);font-family:Rajdhani;font-size:clamp(10px,.85vw,13px);margin-inline-start:5px}
-  .modeToggle{display:flex;align-items:center;gap:4px;font:600 clamp(9px,.7vw,11px) Tajawal;color:var(--mute);
+  .chip{align-self:flex-start;font:600 clamp(9px,calc(.7 * var(--evw)),11px) Tajawal;color:var(--mute);background:var(--panel);border:1px solid var(--line);border-radius:999px;padding:3px 9px;white-space:nowrap}
+  .chip b{color:var(--bone);font-family:Rajdhani;font-size:clamp(10px,calc(.85 * var(--evw)),13px);margin-inline-start:5px}
+  .modeToggle{display:flex;align-items:center;gap:4px;font:600 clamp(9px,calc(.7 * var(--evw)),11px) Tajawal;color:var(--mute);
               background:var(--panel);border:1px solid var(--line);border-radius:999px;padding:3px 9px;
               white-space:nowrap;cursor:pointer;transition:background .15s,color .15s,border-color .15s}
   .modeToggle .modeIcon{font-size:1.1em;line-height:1}
   .modeToggle.on{background:var(--bone);color:#12161B;border-color:var(--bone)}
-  .now{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:clamp(10px,1.1vw,16px);display:flex;align-items:center;gap:clamp(8px,1vw,14px)}
-  .tile{width:clamp(44px,5vw,74px);height:clamp(50px,5.6vw,84px);flex:none;display:grid;place-items:center;padding-top:8px;border-radius:12px;background:var(--panel-2);border:1px dashed var(--line);font:900 clamp(24px,2.6vw,40px) Tajawal;color:var(--mute)}
+  .now{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:clamp(10px,calc(1.1 * var(--evw)),16px);display:flex;align-items:center;gap:clamp(8px,var(--evw),14px)}
+  .tile{width:clamp(44px,calc(5 * var(--evw)),74px);height:clamp(50px,calc(5.6 * var(--evw)),84px);flex:none;display:grid;place-items:center;padding-top:8px;border-radius:12px;background:var(--panel-2);border:1px dashed var(--line);font:900 clamp(24px,calc(2.6 * var(--evw)),40px) Tajawal;color:var(--mute)}
   .tile.live{background:var(--pick);border:1px solid #C9A700;color:#161B22}
   .btns{display:flex;flex-direction:column;gap:8px}
-  .btn{flex:1;min-width:0;min-height:clamp(30px,3vw,38px);border:0;border-radius:10px;padding:clamp(7px,.8vw,11px) 6px;font:700 clamp(11px,1vw,14px) Tajawal;color:#121212;cursor:pointer;opacity:.35;pointer-events:none;transition:opacity .18s;
+  .btn{flex:1;min-width:0;min-height:clamp(30px,calc(3 * var(--evw)),38px);border:0;border-radius:10px;padding:clamp(7px,calc(.8 * var(--evw)),11px) 6px;font:700 clamp(11px,var(--evw),14px) Tajawal;color:#121212;cursor:pointer;opacity:.35;pointer-events:none;transition:opacity .18s;
        overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .btn.live{opacity:1;pointer-events:auto}
-  .log{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:clamp(7px,.8vw,11px)}
+  .log{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:clamp(7px,calc(.8 * var(--evw)),11px)}
   .log header{display:flex;align-items:center;justify-content:center;margin-bottom:6px}
-  .tally{font-family:Rajdhani;font-weight:700;font-size:clamp(34px,4.2vw,54px);font-variant-numeric:tabular-nums}
+  .tally{font-family:Rajdhani;font-weight:700;font-size:clamp(34px,calc(4.2 * var(--evw)),54px);font-variant-numeric:tabular-nums}
   .tally .x{color:var(--line);margin:0 10px}
   .log ol{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:4px;max-height:80px;overflow:auto}
-  .log li{display:flex;align-items:center;gap:6px;font:500 clamp(9px,.8vw,11px) Tajawal;color:var(--mute);border-top:1px solid var(--line);padding-top:4px}
+  .log li{display:flex;align-items:center;gap:6px;font:500 clamp(9px,calc(.8 * var(--evw)),11px) Tajawal;color:var(--mute);border-top:1px solid var(--line);padding-top:4px}
   .log li:first-child{border-top:0;padding-top:0}
   .log li i{width:9px;height:9px;border-radius:50%;flex:none}
   .log li b{color:var(--bone);margin-inline-start:auto}
