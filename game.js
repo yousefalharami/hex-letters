@@ -1,7 +1,7 @@
 /* ---------------- config ---------------- */
 const PRESETS1=["#F2913C","#E0533D","#E8B23A","#C86BE0","#3D8BE0","#E24C6B","#16A085","#7B68EE","#9B59B6","#EF7FA8"];
 const PRESETS2=["#63BF8E","#3FA9C9","#8FCB4A","#5E7CE2","#26A69A","#B0BEC5","#2E8B57","#4FC3F7","#7E57C2","#78909C"];
-const cfg={t1:PRESETS1[0],t2:PRESETS2[0],rounds:3,letters:"ar",lang:"ar",darkMode:false,
+const cfg={t1:PRESETS1[0],t2:PRESETS2[0],rounds:3,letters:"ar",lang:"ar",darkMode:false,boardSize:5,
            title:{ar:"خلية الحروف",en:"Letter Hive"},names:{1:"",2:""}};
 const L=()=>T[cfg.lang];
 const teamName=team=>cfg.names[team]||L()[team===1?'t1':'t2'];
@@ -23,7 +23,7 @@ const COLOR_NAMES={
 const colorName=hex=>(COLOR_NAMES[hex]||{})[cfg.lang]||hex;
 const winnerLabel=team=>cfg.names[team]||colorName(team===1?cfg.t1:cfg.t2);
 const AR="ابتثجحخدذرزسشصضطظعغفقكلمنهوي".split("");
-const EN="ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
+const EN="ABCDEFGHIJKLMNOPQRSTUVWYZ".split("");
 
 /* ---------------- home wiring ---------------- */
 function swatchRow(el,list,key){
@@ -33,7 +33,7 @@ function swatchRow(el,list,key){
 function paintSel(){
   sw1.querySelectorAll('.sw').forEach(b=>b.classList.toggle('on',b.dataset.c===cfg.t1));
   sw2.querySelectorAll('.sw').forEach(b=>b.classList.toggle('on',b.dataset.c===cfg.t2));
-  [['segRounds',String(cfg.rounds)],['segLetters',cfg.letters],['segLang',cfg.lang]].forEach(([id,v])=>
+  [['segRounds',String(cfg.rounds)],['segLetters',cfg.letters],['segLang',cfg.lang],['segSize',String(cfg.boardSize)]].forEach(([id,v])=>
     document.getElementById(id).querySelectorAll('button').forEach(b=>b.classList.toggle('on',b.dataset.v===v)));
 }
 function applyColors(){
@@ -52,10 +52,14 @@ function applyLang(){
   document.documentElement.dir=cfg.lang==='ar'?'rtl':'ltr';
   gameTitle.textContent=cfg.title[cfg.lang];
   sideTitle.textContent=cfg.title[cfg.lang];
-  tagline.textContent=t.tag; startBtn.textContent=t.start; tourBtn.textContent=t.tourBtn;
+  menuTitle.textContent=cfg.title[cfg.lang];
+  tagline.textContent=t.tag; menuTagline.textContent=t.tag;
+  startBtn.textContent=t.start; classicBtn.textContent=t.classicBtn; tourBtn.textContent=t.tourBtn;
+  homeBackBtn.textContent=t.back;
   lblColors.textContent=t.colors; hintColors.textContent=t.hint;
-  lblRounds.textContent=t.rounds; lblLetters.textContent=t.letters;
+  lblRounds.textContent=t.rounds; lblLetters.textContent=t.letters; lblSize.textContent=t.boardSize;
   segLetters.querySelectorAll('button').forEach(b=>b.textContent=t[b.dataset.v]);
+  segSize.querySelectorAll('button').forEach(b=>b.textContent=t['size'+b.dataset.v]);
   name1.placeholder=t.t1; name2.placeholder=t.t2;
   qbBtn.textContent=t.qbTitle; onlineBtn.textContent=t.onlineTitle; qbCardTitle.textContent=t.qbTitle;
   qbCardSub.textContent=t.qbSoon; qbClose.textContent=t.ok;
@@ -67,21 +71,88 @@ function applyLang(){
 }
 swatchRow(sw1,PRESETS1,'t1'); swatchRow(sw2,PRESETS2,'t2');
 segRounds.onclick=e=>{if(e.target.dataset.v){cfg.rounds=+e.target.dataset.v;paintSel();applyLang();}};
-segLetters.onclick=e=>{if(e.target.dataset.v){cfg.letters=e.target.dataset.v;paintSel();}};
+segLetters.onclick=e=>{
+  if(!e.target.dataset.v)return;
+  cfg.letters=e.target.dataset.v;
+  if(cfg.boardSize===6&&cfg.letters!=='mix')cfg.boardSize=5;
+  paintSel();
+};
+segSize.onclick=e=>{
+  if(!e.target.dataset.v)return;
+  const n=+e.target.dataset.v;
+  if(n===6&&cfg.letters!=='mix'){
+    showConfirm(L().sizeConfirm,()=>{
+      cfg.letters='mix';
+      cfg.boardSize=n;
+      paintSel();
+    });
+    return;
+  }
+  cfg.boardSize=n;
+  paintSel();
+};
 segLang.onclick=e=>{if(e.target.dataset.v){cfg.lang=e.target.dataset.v;paintSel();applyLang();persistSettings();}};
-gameTitle.addEventListener('input',()=>{cfg.title[cfg.lang]=gameTitle.textContent;persistSettings();});
+gameTitle.addEventListener('input',()=>{cfg.title[cfg.lang]=gameTitle.textContent;menuTitle.textContent=gameTitle.textContent;persistSettings();});
 name1.addEventListener('input',()=>{cfg.names[1]=name1.value.trim();persistSettings();});
 name2.addEventListener('input',()=>{cfg.names[2]=name2.value.trim();persistSettings();});
 qbBtn.onclick=()=>{qbCardTitle.textContent=L().qbTitle;qbOverlay.classList.add('show');};
 onlineBtn.onclick=()=>{qbCardTitle.textContent=L().onlineTitle;qbOverlay.classList.add('show');};
 qbClose.onclick=()=>qbOverlay.classList.remove('show');
+let confirmPending=null;
+function showConfirm(message,onConfirm){
+  const t=L();
+  confirmMsg.textContent=message;
+  confirmCancelBtn.textContent=t.confirmCancel;
+  confirmYesBtn.textContent=t.confirmYes;
+  confirmPending=onConfirm;
+  confirmOverlay.classList.add('show');
+}
+confirmYesBtn.onclick=()=>{
+  const cb=confirmPending;
+  confirmPending=null;
+  confirmOverlay.classList.remove('show');
+  if(cb)cb();
+};
+confirmCancelBtn.onclick=()=>{
+  confirmPending=null;
+  confirmOverlay.classList.remove('show');
+};
+const INFO_OPTIONS={
+  size:[['size-large','size6'],['size-regular','size5'],['size-small','size4'],['size-mini','size3']],
+  letters:[['letters-arabic','ar'],['letters-english','en'],['letters-mix','mix']]
+};
+function showInfo(kind){
+  const t=L();
+  const list=INFO_OPTIONS[kind];
+  infoTitle.textContent=kind==='size'?t.boardSize:t.letters;
+  infoGrid.innerHTML=list.map(([img,labelKey],i)=>{
+    const label=t[labelKey];
+    const centered=(list.length%2===1&&i===list.length-1)?' spanCenter':'';
+    return `<div class="infoOption${centered}">
+      <div class="infoImgSlot">
+        <img src="option-images/${img}.png" alt="${label}"
+             onload="this.classList.add('loaded');this.nextElementSibling.style.display='none'"
+             onerror="this.remove()">
+        <span class="infoImgLabel">${label}</span>
+      </div>
+      <div class="infoOptCaption">${label}</div>
+    </div>`;
+  }).join('');
+  infoCloseBtn.textContent=t.ok;
+  infoOverlay.classList.add('show');
+}
+sizeInfoBtn.onclick=()=>showInfo('size');
+lettersInfoBtn.onclick=()=>showInfo('letters');
+infoCloseBtn.onclick=()=>infoOverlay.classList.remove('show');
 startBtn.onclick=()=>{scHome.classList.remove('on');scGame.classList.add('on');newMatch();lockLandscape();};
+classicBtn.onclick=()=>{scMenu.classList.remove('on');scHome.classList.add('on');};
+homeBackBtn.onclick=()=>{scHome.classList.remove('on');scMenu.classList.add('on');};
 darkModeBtn.onclick=()=>{cfg.darkMode=!cfg.darkMode;paintDarkMode();sync();persistSettings();};
 
 /* ---------------- game state ---------------- */
-const state={owner:Array(25).fill(null),letters:[],sel:null,round:1,hist:[],done:false,over:false};
+const state={owner:Array(ROWS*COLS).fill(null),letters:[],sel:null,round:1,hist:[],done:false,over:false};
 function pool(){return cfg.letters==='ar'?AR:cfg.letters==='en'?EN:AR.concat(EN);}
-function deal(){state.letters=pool().slice().sort(()=>Math.random()-.5).slice(0,25);}
+function deal(){state.letters=pool().slice().sort(()=>Math.random()-.5).slice(0,ROWS*COLS);}
 function neighbors(i){
   const r=Math.floor(i/COLS),c=i%COLS,odd=r%2,out=[];
   [[r,c-1],[r,c+1],[r-1,c-(odd?0:1)],[r-1,c+(odd?1:0)],[r+1,c-(odd?0:1)],[r+1,c+(odd?1:0)]]
@@ -153,13 +224,14 @@ function undoAward(){
 function startRound(){
   if(state.over)return;
   if(state.done)state.round++;
-  state.owner=Array(25).fill(null);state.sel=null;state.done=false;
+  state.owner=Array(ROWS*COLS).fill(null);state.sel=null;state.done=false;
   deal();overlay.classList.remove('show');
   sync();
   undoSnap=null;undoBtn.disabled=true;
 }
 function newMatch(){
-  Object.assign(state,{owner:Array(25).fill(null),sel:null,round:1,hist:[],done:false,over:false});
+  setBoardDims(cfg.boardSize);
+  Object.assign(state,{owner:Array(ROWS*COLS).fill(null),sel:null,round:1,hist:[],done:false,over:false});
   deal();drawBoard();applyLang();overlay.classList.remove('show');
   sync();
   undoSnap=null;undoBtn.disabled=true;

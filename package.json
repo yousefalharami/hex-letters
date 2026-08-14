@@ -5,7 +5,7 @@
   "main": "board.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "sync-web": "cp index.html styles.css i18n.js board.js game.js tournament.js storage.js pwa.js orientation.js manifest.json sw.js www/ && rm -rf www/icons && cp -r icons www/icons && rm -rf www/vendor && cp -r vendor www/vendor"
+    "sync-web": "cp index.html styles.css i18n.js board.js game.js tournament.js storage.js onboarding.js update-check.js pwa.js orientation.js dev-confetti.js manifest.json sw.js www/ && rm -rf www/icons && cp -r icons www/icons && rm -rf www/vendor && cp -r vendor www/vendor && rm -rf www/option-images && cp -r option-images www/option-images"
   },
   "keywords": [],
   "author": "",

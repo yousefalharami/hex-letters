@@ -29,8 +29,79 @@
   },1000);
 </script>
 
-<!-- ================= HOME ================= -->
-<section class="screen on" id="scHome"><div class="home"><div class="home-in">
+<!-- ================= ONBOARDING (first launch only) ================= -->
+<div class="overlay" id="obOverlay">
+  <div class="card obCard" id="obPageLang" style="--c:var(--bone)">
+    <svg class="obLogo" viewBox="0 0 100 100"><polygon points="50,6 88,28 88,72 50,94 12,72 12,28" fill="none" stroke="var(--t1)" stroke-width="7"/><polygon points="50,26 71,38 71,62 50,74 29,62 29,38" fill="var(--t2)"/></svg>
+    <div class="obLangHead">اختر اللغة</div>
+    <div class="obLangHead">Choose your language</div>
+    <div class="obLangBtns">
+      <button class="solid" id="obLangAr">عربي</button>
+      <button class="solid" id="obLangEn">English</button>
+    </div>
+  </div>
+  <div class="card obCard" id="obPageRules" style="--c:var(--bone);display:none">
+    <div class="obTitle" id="obTitle"></div>
+    <ul class="obRules" id="obRulesList"></ul>
+    <p class="obTip" id="obTip"></p>
+    <div class="acts"><button class="solid" id="obStartBtn"></button></div>
+  </div>
+</div>
+
+<!-- ================= SHARED CONFIRM MODAL ================= -->
+<div class="overlay" id="confirmOverlay">
+  <div class="card" id="confirmCard" style="--c:var(--bone)">
+    <p class="confirmMsg" id="confirmMsg"></p>
+    <div class="acts">
+      <button class="ghost" id="confirmCancelBtn"></button>
+      <button class="solid" id="confirmYesBtn"></button>
+    </div>
+  </div>
+</div>
+
+<!-- ================= SHARED INFO MODAL (options explainer) ================= -->
+<div class="overlay" id="infoOverlay">
+  <div class="card infoCard" id="infoCard" style="--c:var(--bone)">
+    <h2 id="infoTitle"></h2>
+    <div class="infoGrid" id="infoGrid"></div>
+    <div class="acts"><button class="solid" id="infoCloseBtn"></button></div>
+  </div>
+</div>
+
+<!-- ================= MANDATORY UPDATE MODAL (no dismiss) ================= -->
+<div class="overlay" id="updateOverlay">
+  <div class="card" id="updateCard" style="--c:var(--pick)">
+    <h2 id="updateTitle"></h2>
+    <p id="updateMsg"></p>
+    <div class="acts"><a class="solid" id="updateBtn" href="#" target="_blank" rel="noopener"></a></div>
+  </div>
+</div>
+
+<!-- ================= LANDING MENU ================= -->
+<section class="screen on" id="scMenu"><div class="home"><div class="home-in">
+  <div class="brand menuBrand">
+    <svg class="hexmark" viewBox="0 0 100 100"><polygon points="50,6 88,28 88,72 50,94 12,72 12,28" fill="none" stroke="var(--t1)" stroke-width="7"/><polygon points="50,26 71,38 71,62 50,74 29,62 29,38" fill="var(--t2)"/></svg>
+    <h1 id="menuTitle"></h1>
+    <p id="menuTagline"></p>
+  </div>
+
+  <button class="start" id="classicBtn"></button>
+  <button class="tourBtn" id="tourBtn"></button>
+  <button class="comingSoonRow" id="onlineBtn"></button>
+
+  <div class="row bottomRow">
+    <div class="seg" id="segLang"><button data-v="ar">عربي</button><button data-v="en">EN</button></div>
+    <button class="qbBox" id="qbBtn"></button>
+  </div>
+</div></div>
+<div class="overlay" id="qbOverlay"><div class="card" id="qbCard" style="--c:var(--bone)">
+  <h2 id="qbCardTitle"></h2><p id="qbCardSub"></p>
+  <div class="acts"><button class="solid" id="qbClose"></button></div>
+</div></div>
+</section>
+
+<!-- ================= CLASSIC SETUP ================= -->
+<section class="screen" id="scHome"><div class="home"><div class="home-in">
   <div class="brand">
     <svg class="hexmark" viewBox="0 0 100 100"><polygon points="50,6 88,28 88,72 50,94 12,72 12,28" fill="none" stroke="var(--t1)" stroke-width="7"/><polygon points="50,26 71,38 71,62 50,74 29,62 29,38" fill="var(--t2)"/></svg>
     <h1 id="gameTitle" contenteditable="true" spellcheck="false">خلية الحروف</h1>
@@ -38,8 +109,6 @@
   </div>
 
   <button class="start" id="startBtn"></button>
-  <button class="tourBtn" id="tourBtn"></button>
-  <button class="comingSoonRow" id="onlineBtn"></button>
 
   <div class="row">
     <span id="lblColors"></span>
@@ -54,18 +123,17 @@
     <div class="seg" id="segRounds"><button data-v="1">1</button><button data-v="3">3</button><button data-v="5">5</button></div>
   </div>
 
-  <div class="row"><span id="lblLetters"></span>
+  <div class="row">
+    <span class="rowLabel"><span id="lblLetters"></span><button class="infoBtn" id="lettersInfoBtn" type="button">ⓘ</button></span>
     <div class="seg" id="segLetters"><button data-v="ar"></button><button data-v="en"></button><button data-v="mix"></button></div>
   </div>
 
-  <div class="row bottomRow">
-    <div class="seg" id="segLang"><button data-v="ar">عربي</button><button data-v="en">EN</button></div>
-    <button class="qbBox" id="qbBtn"></button>
+  <div class="row">
+    <span class="rowLabel"><span id="lblSize"></span><button class="infoBtn" id="sizeInfoBtn" type="button">ⓘ</button></span>
+    <div class="seg" id="segSize"><button data-v="3"></button><button data-v="4"></button><button data-v="5"></button><button data-v="6"></button></div>
   </div>
-</div></div>
-<div class="overlay" id="qbOverlay"><div class="card" id="qbCard" style="--c:var(--bone)">
-  <h2 id="qbCardTitle"></h2><p id="qbCardSub"></p>
-  <div class="acts"><button class="solid" id="qbClose"></button></div>
+
+  <button class="backBtn" id="homeBackBtn"></button>
 </div></div>
 </section>
 
@@ -120,6 +188,10 @@
   </div>
 </div></section>
 
+<!-- DEV — REMOVE BEFORE RELEASE (win confetti) -->
+<canvas id="devConfetti" class="devConfetti"></canvas>
+<!-- /DEV -->
+
 <script src="vendor/capacitor.js"></script>
 <script src="vendor/capacitor-screen-orientation.js"></script>
 <script src="vendor/capacitor-status-bar.js"></script>
@@ -129,6 +201,11 @@
 <script src="game.js"></script>
 <script src="tournament.js"></script>
 <script src="storage.js"></script>
+<script src="onboarding.js"></script>
+<script src="update-check.js"></script>
+<!-- DEV — REMOVE BEFORE RELEASE -->
+<script src="dev-confetti.js"></script>
+<!-- /DEV -->
 <script src="pwa.js"></script>
 </body>
 </html>

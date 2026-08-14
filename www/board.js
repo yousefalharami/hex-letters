@@ -1,6 +1,12 @@
 /* ---------------- board geometry + rendering ---------------- */
-const ROWS=5,COLS=5,s=52,w=Math.sqrt(3)*s,m=58,BASE_BW=5.5*w+2*m,BH=8*s+2*m;
+let ROWS=5,COLS=5;
+const s=52,w=Math.sqrt(3)*s,m=58;
+let BASE_BW=w*(COLS+0.5)+2*m,BH=2*m+s*(1.5*ROWS+0.5);
 let BW=BASE_BW,shiftX=0;
+function setBoardDims(n){
+  ROWS=n;COLS=n;
+  BASE_BW=w*(COLS+0.5)+2*m;BH=2*m+s*(1.5*ROWS+0.5);
+}
 const cx=(r,c)=>m+shiftX+w/2+(r%2?w/2:0)+w*c, cy=r=>m+s+1.5*s*r;
 const vx=(r,c)=>{const X=cx(r,c),Y=cy(r);return[[X,Y-s],[X+w/2,Y-s/2],[X+w/2,Y+s/2],[X,Y+s],[X-w/2,Y+s/2],[X-w/2,Y-s/2]];};
 const K=p=>p.map(v=>Math.round(v*10)/10).join(",");
@@ -20,7 +26,8 @@ function perimeter(){
   const adj={};
   Object.keys(cnt).filter(k=>cnt[k]===1).forEach(k=>{const[a,b]=k.split("|");
     (adj[a]=adj[a]||[]).push(b);(adj[b]=adj[b]||[]).push(a);});
-  const A=K([m+shiftX,m+s/2]),B=K([m+shiftX+5*w,m+s/2]),C=K([m+shiftX+5*w,m+7.5*s]),D=K([m+shiftX,m+7.5*s]);
+  const botShift=(ROWS-1)%2?w/2:0;
+  const A=K([m+shiftX,m+s/2]),B=K([m+shiftX+COLS*w,m+s/2]),C=K([m+shiftX+COLS*w+botShift,m+1.5*s*ROWS]),D=K([m+shiftX+botShift,m+1.5*s*ROWS]);
   let cyc=[A],prev=A,cur=adj[A].reduce((x,y)=>pt[x][0]>pt[y][0]?x:y);
   while(cur!==A){cyc.push(cur);const n=adj[cur].find(p=>p!==prev);prev=cur;cur=n;}
   const arc=(p,q)=>{const i=cyc.indexOf(p),j=cyc.indexOf(q);

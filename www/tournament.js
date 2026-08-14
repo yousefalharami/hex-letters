@@ -1,8 +1,8 @@
 /* ---------------- tournament state ---------------- */
 const TOUR_STEPS=['config','setup','bracket'];
 const TOUR_PALETTE=["#6B8E23","#A03322","#FF6B6B","#D4A373","#CCFF00","#133C2A","#A8E6CF","#0F4C5C",
-                    "#00F5D4","#708090","#03045E","#7B2CBF","#3A0CA3","#F72585","#8B5E3C","#9B5DE5"];
-const tour={name:'',size:4,teams:[],rounds:3,letters:'ar',seeded:[],step:'config'};
+                    "#00F5D4","#708090","#4361EE","#7B2CBF","#FF7A00","#F72585","#8B5E3C","#9B5DE5"];
+const tour={name:'',size:4,teams:[],rounds:3,letters:'ar',boardSize:5,seeded:[],step:'config'};
 let tourActive=false;
 
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;');}
@@ -14,16 +14,16 @@ function makeTeams(n){
 
 /* ---------------- nav ---------------- */
 function tourOpen(){
-  Object.assign(tour,{name:'',size:4,rounds:cfg.rounds||3,letters:'ar',step:'config',seeded:[],bracket:null,queue:[],qi:0,
-    savedCfg:{t1:cfg.t1,t2:cfg.t2,names:{1:cfg.names[1],2:cfg.names[2]},letters:cfg.letters,rounds:cfg.rounds}});
+  Object.assign(tour,{name:'',size:4,rounds:cfg.rounds||3,letters:'ar',boardSize:5,step:'config',seeded:[],bracket:null,queue:[],qi:0,
+    savedCfg:{t1:cfg.t1,t2:cfg.t2,names:{1:cfg.names[1],2:cfg.names[2]},letters:cfg.letters,rounds:cfg.rounds,boardSize:cfg.boardSize}});
   tour.teams=makeTeams(4);
-  scHome.classList.remove('on');scTournament.classList.add('on');
-  lockLandscape();
+  scMenu.classList.remove('on');scTournament.classList.add('on');
+  if(isPhoneSize())lockPortrait();else lockLandscape();
   renderTour();
 }
 function tourBack(){
   const i=TOUR_STEPS.indexOf(tour.step);
-  if(i===0){scTournament.classList.remove('on');scHome.classList.add('on');lockPortrait();return;}
+  if(i===0){scTournament.classList.remove('on');scMenu.classList.add('on');lockPortrait();return;}
   tour.step=TOUR_STEPS[i-1];renderTour();
 }
 function tourNext(){
@@ -54,14 +54,23 @@ function renderConfig(){
       <div class="row" style="margin:0"><span>${t.stepRounds}</span>
         <div class="seg" id="tourRoundsSeg"><button data-v="1">1</button><button data-v="3">3</button><button data-v="5">5</button></div>
       </div>
-      <div class="row" style="margin:0"><span>${t.letters}</span>
+      <div class="row" style="margin:0">
+        <span class="rowLabel">${t.letters}<button class="infoBtn" id="tourLettersInfoBtn" type="button">ⓘ</button></span>
         <div class="seg" id="tourLettersSeg">
           <button data-v="ar">${t.ar}</button><button data-v="en">${t.en}</button><button data-v="mix">${t.mix}</button>
+        </div>
+      </div>
+      <div class="row" style="margin:0">
+        <span class="rowLabel">${t.boardSize}<button class="infoBtn" id="tourSizeInfoBtn" type="button">ⓘ</button></span>
+        <div class="seg" id="tourBoardSizeSeg">
+          <button data-v="3">${t.size3}</button><button data-v="4">${t.size4}</button><button data-v="5">${t.size5}</button><button data-v="6">${t.size6}</button>
         </div>
       </div>
       ${tourNav(true)}
     </div>`;
   tourNameInput.oninput=()=>{tour.name=tourNameInput.value.trim();};
+  tourLettersInfoBtn.onclick=()=>showInfo('letters');
+  tourSizeInfoBtn.onclick=()=>showInfo('size');
   tourSizeSeg.querySelectorAll('button').forEach(b=>{
     b.classList.toggle('on',+b.dataset.v===tour.size);
     b.onclick=()=>{
@@ -78,11 +87,31 @@ function renderConfig(){
       tourRoundsSeg.querySelectorAll('button').forEach(x=>x.classList.toggle('on',x===b));
     };
   });
+  function paintTourLettersSize(){
+    tourLettersSeg.querySelectorAll('button').forEach(x=>x.classList.toggle('on',x.dataset.v===tour.letters));
+    tourBoardSizeSeg.querySelectorAll('button').forEach(x=>x.classList.toggle('on',+x.dataset.v===tour.boardSize));
+  }
+  paintTourLettersSize();
   tourLettersSeg.querySelectorAll('button').forEach(b=>{
-    b.classList.toggle('on',b.dataset.v===tour.letters);
     b.onclick=()=>{
       tour.letters=b.dataset.v;
-      tourLettersSeg.querySelectorAll('button').forEach(x=>x.classList.toggle('on',x===b));
+      if(tour.boardSize===6&&tour.letters!=='mix')tour.boardSize=5;
+      paintTourLettersSize();
+    };
+  });
+  tourBoardSizeSeg.querySelectorAll('button').forEach(b=>{
+    b.onclick=()=>{
+      const n=+b.dataset.v;
+      if(n===6&&tour.letters!=='mix'){
+        showConfirm(t.sizeConfirm,()=>{
+          tour.letters='mix';
+          tour.boardSize=n;
+          paintTourLettersSize();
+        });
+        return;
+      }
+      tour.boardSize=n;
+      paintTourLettersSize();
     };
   });
   wireNav();
@@ -137,6 +166,7 @@ function tourDoDraw(){
   tour.bracket={left:built.left,right:built.right,final:built.final};
   tour.queue=built.queue;tour.qi=0;
   tour.step='bracket';
+  lockLandscape();
   tourNameTag.textContent=tour.name||'';
   renderBracket(true);
   runDrawReveal();
@@ -308,7 +338,7 @@ function runDrawReveal(){
 function tourLaunchMatch(m){
   cfg.names[1]=m.a.name;cfg.names[2]=m.b.name;
   cfg.t1=m.a.color;cfg.t2=m.b.color;
-  cfg.letters=tour.letters;cfg.rounds=tour.rounds;
+  cfg.letters=tour.letters;cfg.rounds=tour.rounds;cfg.boardSize=tour.boardSize;
   tourActive=true;
   btnExit.onclick=tourConfirmExit;homeBtn.onclick=tourConfirmExit;
   againBtn.onclick=startRound;
@@ -353,19 +383,20 @@ function tourResetState(){
   if(tour.savedCfg){
     cfg.t1=tour.savedCfg.t1;cfg.t2=tour.savedCfg.t2;
     cfg.names[1]=tour.savedCfg.names[1];cfg.names[2]=tour.savedCfg.names[2];
-    cfg.letters=tour.savedCfg.letters;cfg.rounds=tour.savedCfg.rounds;
+    cfg.letters=tour.savedCfg.letters;cfg.rounds=tour.savedCfg.rounds;cfg.boardSize=tour.savedCfg.boardSize;
     applyColors();paintSel();applyLang();
   }
 }
 function tourConfirmExit(){
-  const t=L();
-  if(!confirm(t.tourExitConfirm))return;
-  tourResetState();
-  goHome();
+  showConfirm(L().tourExitConfirm,()=>{
+    tourResetState();
+    scGame.classList.remove('on');scTournament.classList.remove('on');scMenu.classList.add('on');
+    lockPortrait();
+  });
 }
 function tourFinishTournament(){
   tourResetState();
-  scTournament.classList.remove('on');scHome.classList.add('on');
+  scTournament.classList.remove('on');scMenu.classList.add('on');
   lockPortrait();
 }
 

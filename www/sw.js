@@ -1,4 +1,4 @@
-const CACHE = 'hex-letters-v49';
+const CACHE = 'hex-letters-v73';
 const ASSETS = [
   './',
   './index.html',
@@ -8,12 +8,24 @@ const ASSETS = [
   './game.js',
   './tournament.js',
   './storage.js',
+  './onboarding.js',
+  './update-check.js',
   './orientation.js',
+  /* DEV — REMOVE BEFORE RELEASE */
+  './dev-confetti.js',
+  /* /DEV */
   './pwa.js',
   './manifest.json',
   './icons/icon-192.png',
   './icons/icon-512.png',
   './icons/icon-512-maskable.png',
+  './option-images/size-large.png',
+  './option-images/size-regular.png',
+  './option-images/size-small.png',
+  './option-images/size-mini.png',
+  './option-images/letters-arabic.png',
+  './option-images/letters-english.png',
+  './option-images/letters-mix.png',
   './vendor/capacitor.js',
   './vendor/capacitor-screen-orientation.js',
   './vendor/capacitor-status-bar.js'

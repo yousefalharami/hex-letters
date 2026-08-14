@@ -15,6 +15,17 @@ function lockPortrait(){lockOrientation('portrait');setStatusBarHidden(false);}
 function lockLandscape(){lockOrientation('landscape');setStatusBarHidden(true);}
 lockPortrait();
 
+/* Screen-size heuristic, not a real device-model check: iPhones' shorter
+   physical dimension tops out around 430pt, iPads' starts around 744pt —
+   600 sits safely between them. Same threshold this app already uses for
+   the onboarding card's iPad-widening CSS (styles.css, min-width:600px).
+   screen.width/height reflect the CURRENT orientation's dimensions (they
+   swap on rotation), so Math.min() of the two is a rotation-independent
+   proxy for the device's shorter physical dimension. */
+function isPhoneSize(){
+  return Math.min(screen.width,screen.height)<600;
+}
+
 /* Defensive re-assert: the game board screen must never actually present in
    portrait, on any device. A one-time lock() call on entering #scGame is
    already correct, but this listener re-asserts it if the device is

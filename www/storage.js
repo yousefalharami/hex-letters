@@ -1,6 +1,7 @@
 /* ---------------- persistence ---------------- */
 const STORAGE_PREFIX='hexletters:v1:';
 const SETTINGS_KEY=STORAGE_PREFIX+'settings';
+const ONBOARD_KEY=STORAGE_PREFIX+'onboarded';
 
 function storageGet(key){
   try{
@@ -23,6 +24,9 @@ function loadSettings(){
   if(s.lang)cfg.lang=s.lang;
   if(typeof s.darkMode==='boolean')cfg.darkMode=s.darkMode;
 }
+
+function hasOnboarded(){return storageGet(ONBOARD_KEY)===true;}
+function markOnboarded(){storageSet(ONBOARD_KEY,true);}
 
 loadSettings();
 name1.value=cfg.names[1]||'';name2.value=cfg.names[2]||'';

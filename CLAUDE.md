@@ -4,15 +4,52 @@ A hex-board trivia game. These rules are load-bearing — the geometry and win-d
 code encode them precisely, and changes that violate them will look subtly wrong
 (misaligned zones, wrong winner, etc.) rather than crash outright.
 
+## ⚠️ DEV-ONLY, TEMPORARY — remove before release
+
+One feature exists purely for the host's own testing and is **not meant to ship**.
+Every file/line it touches is marked `/* DEV — REMOVE BEFORE RELEASE */` (or the HTML
+`<!-- DEV — REMOVE BEFORE RELEASE -->` equivalent) so it's deletable as one
+self-contained unit, with zero changes to real game/tournament logic underneath it.
+
+- **Continuous win confetti** (`dev-confetti.js`) — a canvas particle effect that
+  runs continuously (not a one-shot burst) while the round/match-win popup is showing,
+  using the winning team's own color (read from `#winCard`'s `--c`, already set by
+  `award()` for the popup's own styling — nothing new added to `game.js` to expose
+  it). **Implemented as a pure external observer** (`MutationObserver` on `#scGame`'s
+  and `#overlay`'s `class` attributes) instead of hooking into `award()`/
+  `startRound()`/`goHome()` directly — this is *why* zero lines in `game.js`/
+  `tournament.js` needed to change for this feature at all. To remove: delete
+  `dev-confetti.js`; remove its `<script>` tag and the `#devConfetti` canvas in
+  `index.html`; remove the `.devConfetti` CSS block in `styles.css`; drop
+  `dev-confetti.js` from `sw.js`'s `ASSETS` (currently inside a matching `DEV`
+  comment block) and from `package.json`'s `sync-web` script (no comment syntax in
+  JSON, so that one's a plain by-hand removal); bump `sw.js`'s `CACHE` version after.
+- **Two previously-existing dev-only features have since been fully removed** —
+  if you see any stray reference to either, it's a leftover to delete, not a feature
+  to restore:
+  - A background-color tester (`dev-bgtester.js`, `#devBgBtn`/`#devBgMenu`,
+    `.devBg*` CSS). `--ink` is back to being set only once, in `:root` (`#0D1014`).
+  - The "⬆" force-show-update-modal preview toggle (`dev-updatetoggle.js`,
+    `#devUpdateBtn`, `.devUpdateBtn` CSS). **The permanent modal it used to trigger
+    (`update-check.js`, `#updateOverlay`, `showUpdateRequired()`) is untouched and
+    still there** — only the on-demand dev trigger was removed; see "Mandatory
+    update-required modal" below. `showUpdateRequired()` currently has no caller
+    anywhere in the app — that's expected until the real version-check is built, not
+    a regression from this removal.
+
 ## Board
 
-- Pointy-top hexagons, 5 rows x 5 columns (`ROWS=5`, `COLS=5` in `board.js`).
+- Pointy-top hexagons, always square (`ROWS===COLS`), size selectable — see "Board
+  size" below. `ROWS`/`COLS` (`board.js`) are `let`, not `const`, and default to 5.
 - Odd rows (index 1, 3, ... zero-based) are offset right by half a cell width
   (`cx()` in `board.js` adds `w/2` when `r%2` is truthy). Row/col indices are 0-based;
   cell index is `r*COLS+c`.
 - Each cell holds one letter, dealt from the configured alphabet pool (`AR`/`EN`/mix in
   `game.js`). A question is asked; the answer starts with that letter; whichever team
   answers first claims the cell.
+- **`EN` excludes `X`** (`"ABCDEFGHIJKLMNOPQRSTUVWYZ"`, 25 letters, not 26) — deliberate,
+  not a typo. `X` never appears in English or mixed pools; `AR` is untouched. Don't
+  "restore" it without being asked again.
 - Selected-but-unclaimed cell renders yellow (`--pick`, `#FFD60A`). This is a UI
   selection state, not an ownership state — `state.sel` is separate from `state.owner`.
 
@@ -144,10 +181,33 @@ matters (home screen) and it's a strict superset of what landscape ever needs.
   `60px` height, its own radial-gradient tuned so its bottom edge — the seam — closely
   matches the color `.home`'s own gradient shows at *its* top edge) that bleeds
   upward past `.home`'s real box, same "don't touch the real box, only decorate above
-  it" principle as `.stage::before` — `.home`'s own `min-height:100vh`/`padding`/
-  `place-items:center` centering (and therefore `.home-in`'s content position) is
-  completely untouched, so the logo/buttons don't shift at all. Needed `.home{position:
+  it" principle as `.stage::before` — `.home`'s own `padding`/`place-items:center`
+  centering (and therefore `.home-in`'s content position) is completely untouched by
+  *this* fix, so the logo/buttons don't shift at all. Needed `.home{position:
   relative}` added (wasn't set before) so the pseudo-element positions against it.
+- **`.home{min-height:calc(100vh - env(safe-area-inset-top) - env(safe-area-inset-bottom))}`**,
+  not a bare `100vh` — this is a *different* fix from the one above, for a *different*
+  symptom (reported as "the menu content looks shifted down, not centered", not a
+  color seam). `body` already reserves `env(safe-area-inset-top)`/`-bottom` as its own
+  padding (see above) — `.home` (a normal-flow child of `body`) used to *also* claim a
+  full `100vh` on top of that padding, making the combined rendered height
+  `100vh + safe-area-top + safe-area-bottom`, taller than the actual viewport. Since
+  an iPhone's top inset (Dynamic Island/notch) is larger than its bottom inset (home
+  indicator), that extra height wasn't symmetric — it visually pushed `place-items:
+  center`'s centering point down from the viewport's true center. Subtracting both
+  insets from `.home`'s own `min-height` makes the total exactly `100vh` again, so
+  centering is relative to the real viewport. **This is shared by `#scMenu`,
+  `#scHome`, and `#scTournament`** (all three use the `.home`/`.home-in` wrapper), so
+  fixing it once at `.home` corrects vertical centering on all three, not just
+  whichever screen the shift was first reported on.
+- **`.home-in{transform:translateY(-20px)}`** is a separate, deliberate visual nudge
+  on top of the fix above, not a correction to it — after true `100vh` centering was
+  restored, the host still felt the content read as slightly low and asked for "a bit
+  of a push up, not too much." This is a plain, fixed offset (not safe-area-derived
+  like the fix above), so it shifts `#scMenu`/`#scHome`/`#scTournament` content up by
+  the same `20px` regardless of device/notch size. If it ever needs tuning, this is
+  the one number to adjust — don't reach for the `.home` `min-height` calc above for
+  this, that's solving a different (already-solved) problem.
 - `.tourBracket`'s own `overflow-x:auto` (for the 16-team bracket, which is
   legitimately wider than any phone) is a **deliberate, contained** exception, not a
   bug the page-level guard should suppress — an ancestor's `overflow-x:hidden` doesn't
@@ -387,6 +447,217 @@ A toggle (`#darkModeBtn`, next to the round chip in `.chipRow`) that inverts onl
   `sync()` itself; the click handler calls both `paintDarkMode()` and `sync()`
   separately, since one updates the button chrome and the other repaints the board.
 
+## Board size (`cfg.boardSize`, home screen)
+
+Four options: **Mini 3×3 (9), Small 4×4 (16), Regular 5×5 (25, default), Large 6×6
+(36)**. This was a genuine geometry change (the first one this project's many sessions
+of "don't touch hex geometry" instructions have actually called for) — approved via a
+proposal-and-mockup pass before implementation, not built speculatively.
+
+- **`board.js`: `ROWS`/`COLS` are `let`, driven by `setBoardDims(n)`** (sets both to
+  `n`, then recomputes `BASE_BW`/`BH` from them). The two constants generalize cleanly
+  from the original fixed-5 formulas: `BASE_BW = w*(COLS+0.5) + 2*m`,
+  `BH = 2*m + s*(1.5*ROWS + 0.5)` — algebraically identical to the old hardcoded
+  `5.5*w+2*m`/`8*s+2*m` when `ROWS=COLS=5`, just not written as one anymore.
+  `perimeter()`'s four corner points (`A`/`B`/`C`/`D`) generalize the same way:
+  `COLS*w` replaces the old hardcoded `5*w`, `1.5*s*ROWS` replaces `7.5*s`.
+- **The ray-casting zone-fill (`ray()`) and `sizeBoardCanvas()`'s aspect-fit needed *zero*
+  changes** — neither ever referenced `ROWS`/`COLS`/`5` as numbers, only the two
+  constants and the corner points above, which are already covered. This is why the
+  paint background and centering "just work" at every size, on every device/
+  orientation, with no size-specific code of their own — they're already generic over
+  whatever `BASE_BW`/`BH` happen to be.
+- **`won()` and `neighbors()` (`game.js`) needed *zero* changes** — both were already
+  written in terms of `ROWS`/`COLS` variables, confirmed by reading them before this
+  feature was built, not assumed. Only `deal()`'s `.slice(0,25)` (→
+  `.slice(0,ROWS*COLS)`) and three `Array(25)` call sites (`state` init, `startRound()`,
+  `newMatch()`) needed the hardcoded `25` parameterized.
+- **`newMatch()` calls `setBoardDims(cfg.boardSize)` before dealing/drawing** — this is
+  the one and only place a match's board size gets locked in. Size is a home-screen
+  setting exactly like `cfg.rounds`/`cfg.letters`: applied once at match start, never
+  changed mid-match, and **deliberately not persisted** (matches the existing
+  rounds/letters precedent in `storage.js`/this file) — "Regular selected automatically
+  on every launch" falls out of that existing pattern for free, not a new rule.
+- **Letters interlock, both directions, in `game.js`'s `segSize`/`segLetters` click
+  handlers**:
+  - Selecting Large (`n===6`) while letters aren't already `mix` → native `confirm()`
+    (same pattern as `tourConfirmExit()`, not a new modal system) — decline leaves
+    everything unchanged; agree sets `cfg.letters='mix'` **and** `cfg.boardSize=6` in
+    the same handler, then one `paintSel()` repaints both segmented controls together,
+    so there's no in-between frame showing an inconsistent state. Selecting Large while
+    already on `mix` skips the confirm entirely (nothing needs agreeing to).
+  - Leaving `mix` while `cfg.boardSize===6` (in `segLetters`'s handler) **silently**
+    reverts to `cfg.boardSize=5` — no confirm, same one-`paintSel()`-call atomicity.
+  - Both directions are needed independently; don't assume fixing one handler covers
+    the other, they're two separate click handlers on two separate controls.
+- **Tournament has its own board-size setting** (`tour.boardSize`, `config` step,
+  `renderConfig()` in `tournament.js`) — a `tourBoardSizeSeg` segmented control next to
+  the existing letters row, same four options/labels (`t.boardSize`/`size3..6`) as the
+  home screen's `segSize`. `tourLaunchMatch()` sets `cfg.boardSize=tour.boardSize`
+  before calling `newMatch()`, so every match in the bracket uses whatever size was
+  picked on the config step — **one setting for the whole tournament, not per-match**,
+  same "one shared setting" precedent as `tour.rounds`/`tour.letters` (see "Rounds is
+  one shared setting" under "Tournament mode" below). `tour.boardSize` defaults to `5`
+  (`tour` object literal and `tourOpen()`'s reset `Object.assign`) — a fresh tournament
+  always starts on Regular, matching the home screen's own default.
+  - **Large/mixed-letters interlock is duplicated here, not shared with the home
+    screen's handlers** — `tour.letters`/`tour.boardSize` are separate state from
+    `cfg.letters`/`cfg.boardSize`, so `segSize`/`segLetters`'s own click handlers
+    (`game.js`) can't be reused directly. `renderConfig()`'s local `paintTourLettersSize()`
+    plays the same role as `game.js`'s `paintSel()` for this one interlock: both
+    directions (selecting Large while not on `mix` → `confirm()` then sets both
+    fields atomically; leaving `mix` while `boardSize===6` → silent revert to `5`) are
+    reimplemented against `tour.*` instead of `cfg.*`, reusing the same `t.sizeConfirm`
+    i18n string. If the interlock logic ever changes, **both places need the same fix**
+    — there's no shared helper between the two, on purpose (home screen state and
+    tournament config state were already separate before this, and introducing a
+    shared cross-cutting helper for just this one interlock wasn't asked for).
+  - **`tourOpen()`'s `savedCfg` snapshot and `tourResetState()`'s restore still cover
+    the *home screen's own* `cfg.boardSize`** (separate from `tour.boardSize` above) —
+    unchanged by this feature, still needed for the same reason `t1`/`t2`/`names`/
+    `letters`/`rounds` already do (see "Tournament mode" below): without it, finishing
+    or exiting a tournament would leave the home screen permanently stuck on whatever
+    size the last bracket match happened to use, instead of restoring what the user had
+    actually set on the home screen before entering.
+- **Mini (3×3) can end in as few as 3 correctly-answered questions** (a straight
+  3-cell line connects opposite edges) — a real, disclosed pacing difference from
+  Regular, not a bug. No special-casing was added for this (no "quick match" label, no
+  minimum-round rule) — it's genuinely optional UI polish that wasn't asked for, don't
+  add it speculatively.
+- i18n keys: `boardSize` (row label), `size3`/`size4`/`size5`/`size6` (button labels,
+  keyed by the segmented control's `data-v`, not by array index), `sizeConfirm` (the
+  Large confirmation text). Don't confuse `stepSize` (tournament's own, pre-existing
+  "how many teams?" label) with this feature's `boardSize` — same English word,
+  different settings, kept as separate keys on purpose.
+
+## Board Size / Letters info modal (ⓘ)
+
+A small "ⓘ" button (`.infoBtn`) next to the **Letters** and **Board Size** row labels
+opens a shared, reusable modal (`#infoOverlay`/`showInfo(kind)` in `game.js`)
+explaining each option visually — an image slot + short label per option, laid out in
+a 2-column grid (`.infoGrid`). Same shell/style as every other popup in this app
+(`.overlay`/`.card`).
+
+- **Present on both screens that have a Letters/Board Size control — Classic setup
+  (`#scHome`) and the tournament `config` step (`#scTournament`) — deliberately kept
+  in parity.** Classic's buttons are static HTML (`#lettersInfoBtn`/`#sizeInfoBtn`,
+  `index.html`); tournament's are generated fresh every `renderConfig()` call
+  (`#tourLettersInfoBtn`/`#tourSizeInfoBtn`, `tournament.js`, wired at the bottom of
+  that function alongside its other button wiring, same as every other tournament
+  config control). **Different ids on purpose** — both screens' buttons coexist in the
+  DOM at the same time (`#scHome` always exists even when inactive), so reusing the
+  same id would collide (see "Generated element ids must not collide" below). Both
+  sets call the exact same shared `showInfo('letters'|'size')` — the modal's content
+  is identical regardless of which screen opened it, since `INFO_OPTIONS` isn't
+  screen-specific. If a third screen ever needs this, follow the same pattern: its own
+  uniquely-prefixed button ids, wired to call the existing `showInfo()` — never fork a
+  second copy of the modal/content.
+
+- **`.rowLabel` wraps the existing label `<span>` + the new info button as siblings**,
+  not one merged element — `#lblLetters`/`#lblSize` themselves are completely
+  untouched (`applyLang()` still does `lblLetters.textContent=t.letters` exactly as
+  before; wrapping the button *inside* that span instead would have broken this, since
+  `.textContent=` wipes out any child elements). `.row>span{font:700 14px Tajawal}`
+  still applies correctly since `.rowLabel` is itself a `<span>` and the direct child
+  of `.row` now — the inner label span inherits the font, no separate rule needed.
+- **`INFO_OPTIONS` (`game.js`) is the single source of truth for both modals' content**
+  — an object keyed `size`/`letters`, each an array of `[imageBasename, i18nLabelKey]`
+  pairs. **No new i18n keys were added for labels or titles** — every option label
+  reuses the exact same keys the segmented controls themselves already use
+  (`size3`/`size4`/`size5`/`size6` for board size, `ar`/`en`/`mix` for letters), and
+  each modal's own title reuses `t.boardSize`/`t.letters`. The close button reuses
+  `t.ok` (same "dismiss an informational popup" precedent as `#qbClose`). Board Size's
+  display order is **Large → Regular → Small → Mini** (host-specified, the reverse of
+  the segmented control's own Mini→Small→Regular→Large) — don't "fix" this to match
+  the control's order, it was deliberately requested this way.
+- **`.infoGrid` is a fixed 2-column grid; an odd-count list's last item gets
+  `.spanCenter`** (`grid-column:1/-1;justify-self:center;width:calc(50% - 7px)`),
+  computed generically in `showInfo()` (`list.length%2===1 && i===list.length-1`),
+  not hardcoded to Letters' 3 options specifically — if a third `INFO_OPTIONS` kind
+  is ever added with an odd count, its last item centers the same way automatically.
+  Board Size's 4 options never trigger this (even count, fills the grid exactly).
+  The centered item's `width:calc(50% - 7px)` matches a normal column's width exactly
+  (grid gap is `14px`, so half the gap is subtracted) — it spans the full row only
+  for *positioning* purposes, not to render larger than its siblings.
+- **Placeholder-to-real-image handoff needs zero future code changes.** Each option
+  renders an `<img src="option-images/{basename}.png">` that starts hidden
+  (`.infoImgSlot img{display:none}`) plus a text fallback (`.infoImgLabel`, the
+  option's own short label) that's visible by default. The `<img>`'s own `onload`
+  handler adds `.loaded` (making it visible) and hides its `.infoImgLabel` sibling;
+  its `onerror` handler removes the broken `<img>` entirely, leaving the text
+  fallback showing. **The instant a correctly-named file is dropped into
+  `option-images/`, it starts appearing — no HTML/JS/CSS edit needed.** A separate
+  `.infoOptCaption` (the same label again) always shows below the slot regardless of
+  whether the image loaded, since the option needs a name either way once there's a
+  grid of unlabeled-by-default images.
+- **Exact filenames expected** (all `.png`, project root's `option-images/` folder):
+  `size-large.png`, `size-regular.png`, `size-small.png`, `size-mini.png`,
+  `letters-arabic.png`, `letters-english.png`, `letters-mix.png`. Any other filename
+  simply won't be picked up by `INFO_OPTIONS`'s hardcoded basenames — renaming a
+  dropped-in file to match is required, not optional.
+- **`option-images/` is a deployable-copy folder, same pattern as `icons/`/`vendor/`**
+  — `package.json`'s `sync-web` script does `rm -rf www/option-images && cp -r
+  option-images www/option-images` (the `rm -rf`-then-`cp -r` order matters, same
+  nesting-bug reason already documented for `icons/` under "iOS App Store wrapper"
+  below — a bare `cp -r` when the destination already exists nests it one level deep
+  instead of replacing it).
+- **All seven real images have been dropped in and are now in `sw.js`'s `ASSETS`**
+  (`./option-images/*.png`, `CACHE` bumped alongside) — the "don't add a filename to
+  `ASSETS` before the file exists on disk" rule (`caches.addAll` is all-or-nothing;
+  one missing file fails the *entire* service-worker install) is what governed the
+  order this was done in, not a rule about these specific files forever. If any of
+  the seven images is ever renamed/removed, update `ASSETS`/bump `CACHE` in the same
+  change, same as any other asset. `size-regular.png` is currently a duplicate of
+  `letters-english.png` (host's own placeholder choice, not a bug) — replace it with
+  a real Regular-board screenshot whenever one's ready, no code change needed either
+  way, same "drop in a correctly-named file" handoff as the other six.
+
+## Mandatory update-required modal (`update-check.js`)
+
+A blocking, **non-dismissible** modal (`#updateOverlay`) telling the host a new app
+version is required, with a single "تحديث"/"Update" link to the App Store — no close/
+cancel button anywhere on it, by design. Same shell as every other popup (`.overlay`/
+`.card`/`.acts`), styled with `--c:var(--pick)` (the app's yellow accent) instead of
+the neutral `--bone` every other popup uses, specifically to read as more urgent/
+attention-grabbing than an informational or confirm dialog.
+
+- **The modal is real, permanent UI. The trigger is not built yet.** `showUpdateRequired()`
+  (`update-check.js`) does the actual work (fills in `#updateTitle`/`#updateMsg`/
+  `#updateBtn`'s text and `href`, shows the overlay) and is meant to stay — but
+  **nothing in the app calls it currently**, since there's no real version-check
+  built yet. A dev-only "⬆" preview toggle (`dev-updatetoggle.js`) existed briefly
+  for design review and has since been removed (see "DEV-ONLY, TEMPORARY" at the top
+  of this file) — `showUpdateRequired()` having no caller right now is expected, not
+  a bug. **When the real version-check is built, call `showUpdateRequired()` from
+  wherever that check resolves "out of date" — don't rebuild the modal, it's ready to
+  go.**
+- **Non-dismissible is the default, not something enforced by extra code** — this app
+  has never had any backdrop-click-to-close behavior on any `.overlay` (`#qbOverlay`/
+  `#confirmOverlay`/`#infoOverlay`/`#obOverlay` are all closed only via their own
+  explicit buttons) — `#updateOverlay` simply has no close button at all, which is
+  sufficient on its own. Don't add a backdrop click handler "for consistency" — that
+  would break the one property this modal specifically needs.
+- **`#updateOverlay{z-index:900}`** — higher than every other overlay in the app
+  (`#obOverlay`:500, `#infoOverlay`:550, `#confirmOverlay`:600), so it can visibly
+  block whatever's currently showing (including onboarding, in principle) when
+  force-triggered. In the eventual real integration, exactly *when* this should be
+  allowed to interrupt onboarding/an in-progress match is a product decision that
+  hasn't been made yet — don't assume the z-index ordering alone answers it.
+- **`#updateBtn` is a plain `<a>`, not a `<button>`** — its `href` is set to
+  `APP_STORE_URL` (`update-check.js`) and Capacitor's default WKWebView navigation
+  delegate opens external-domain links in the system browser/App Store app
+  automatically, no plugin or `window.open(...,'_system')` call needed. `.solid`'s
+  existing CSS works unchanged on an `<a>` (nothing in it is button-specific); the
+  only addition is `#updateBtn{display:flex;align-items:center;justify-content:center;
+  text-decoration:none}` to make the link render like a proper button.
+- **`APP_STORE_URL` is the real App Store link** (`https://apps.apple.com/app/id6794808658`)
+  — no longer a placeholder; App Store Connect has assigned the app's real numeric id.
+  If this project is ever forked/renamed into a *different* App Store listing, this is
+  the one place that needs updating — nowhere else in the codebase references it.
+- i18n keys: `updateRequiredTitle`, `updateRequiredMsg`, `updateBtn` (both languages,
+  `i18n.js`) — new keys, don't confuse `updateBtn` (this modal's link text, "تحديث"/
+  "Update") with the unrelated `updateRequiredTitle`.
+
 ## Rounds and matches
 
 - Matches are best-of 1/3/5 (`cfg.rounds`), configured on the home screen. A team wins
@@ -435,6 +706,88 @@ ever reaches back to the single award that just happened, never further.
   `e.target.closest('input,textarea,[contenteditable]')` — keep this guard if adding
   any future single-key shortcuts here.
 
+## Landing menu (`#scMenu`) and screens/navigation overview
+
+There are **4 top-level `.screen` elements** now (`#scMenu`, `#scHome`, `#scTournament`,
+`#scGame`), exactly one ever has the `.on` class at a time (`.screen{display:none}
+.screen.on{display:block}`). `#scMenu` is the landing page and is the one that starts
+with `.on` in `index.html` — **`#scHome` is no longer the initial screen**, despite its
+name; it's now the "Classic" 2-team setup form, reached only via `#scMenu`'s "تقليدي"/
+"Classic" button. This was a deliberate restructuring (`#scHome` used to be both the
+landing page and the setup form at once) — don't assume older prose/instincts about
+"the home screen is always shown first" still apply; that's `#scMenu` now.
+
+- **`#scMenu` contents**: brand block (logo + a **non-editable** `<h1 id="menuTitle">` +
+  `<p id="menuTagline">`, styled larger via the `.menuBrand` modifier class — see
+  below), a "Classic" button (`#classicBtn`, styled with `.start`, since it's now the
+  primary action), the Tournament button (`#tourBtn`), the Online row (`#onlineBtn`),
+  and the bottom row (language toggle `#segLang` + Question Bank `#qbBtn`) — plus
+  `#qbOverlay` itself, nested here now (was nested in `#scHome` before).
+- **`#tourBtn`/`#onlineBtn`/`#segLang`/`#qbBtn`/`#qbOverlay` were *relocated*, not
+  duplicated** — same element ids, just moved to a different parent in `index.html`.
+  This was a deliberate choice over duplicating them onto both `#scMenu` and
+  `#scHome`: every existing click handler for these (`tourBtn.onclick=tourOpen` in
+  `tournament.js`; `onlineBtn`/`qbBtn`/`segLang`/`qbClose` in `game.js`) resolves by
+  bare id regardless of DOM location, so relocating cost zero JS changes to those
+  handlers — duplicating them would have needed new ids plus new state-sync code
+  (e.g. two language toggles that both have to reflect `cfg.lang`) for no real
+  benefit. **`#qbOverlay` specifically had to move, not just could** — it's
+  `position:fixed`, but a `position:fixed` descendant still doesn't render while an
+  ancestor is `display:none`; since `qbBtn`/`onlineBtn` (its only two triggers) now
+  only exist inside `#scMenu`, leaving `#qbOverlay` nested inside `#scHome` would have
+  made the popup silently unshowable the moment `#scHome` stopped being the active
+  screen (which, post-restructure, is most of the time).
+- **`#scHome` ("Classic") keeps everything else exactly as it was**: the editable
+  `#gameTitle` (still `contenteditable`, unlike `#scMenu`'s non-editable title),
+  Team Colors / Rounds / Letters / Board Size rows, and the Start button — none of
+  this setup logic was touched. A new `.backBtn`-styled `#homeBackBtn` was added at
+  the end, wired to return to `#scMenu`.
+- **Title/tagline stay in sync across both screens from one source of truth**
+  (`cfg.title[cfg.lang]`, `t.tag`) — `applyLang()` (`game.js`) now sets `menuTitle`/
+  `menuTagline` alongside the existing `gameTitle`/`sideTitle`/`tagline` writes, and
+  `gameTitle`'s own `input` listener (the only place `cfg.title` actually changes,
+  since editing only happens on `#scHome`) also writes `menuTitle.textContent`
+  directly, so `#scMenu`'s title reflects an edit immediately rather than only on the
+  next language switch. `cfg.title` itself is unchanged (still not persisted — see
+  "Persistence" below); this is purely about which DOM elements display it.
+- **`.menuBrand`** (`styles.css`) enlarges the brand block for `#scMenu` only — new
+  modifier class layered on top of the existing `.brand`/`.hexmark` tag/class rules
+  (only overrides `font-size`/dimensions/margins, not the whole `font`/gradient-text
+  shorthand `.brand h1` already sets), so `#scHome`'s own `.brand` (still just
+  `class="brand"`, no modifier) and `#scTournament`'s `.brand` usage are both
+  completely unaffected. Don't edit the base `.brand` rule to make `#scMenu`'s bigger
+  — that would also resize `#scHome`/`#scTournament`.
+- **Navigation map**: `#scMenu` → Classic → `#scHome` → Back → `#scMenu`. `#scMenu` →
+  Tournament → `#scTournament` (`tourOpen()`, now hides `#scMenu` instead of
+  `#scHome`) → Back (on the `config` step)/Finish/confirmed-Exit → `#scMenu` (all
+  three in `tournament.js`: `tourBack()`'s `i===0` case, `tourFinishTournament()`,
+  `tourConfirmExit()` — all changed from `#scHome` to `#scMenu`). `#scHome` → Start →
+  `#scGame` → Exit/Home (`goHome()`, `game.js`, **unchanged** — a plain Classic
+  match still returns to `#scHome`, not `#scMenu`, so replaying with the same setup
+  stays one tap away) → `#scHome`.
+  - **`#scMenu`↔`#scHome` (`classicBtn`/`homeBackBtn`) makes no orientation call** —
+    see the no-op note under "Orientation is per-screen" above; both are portrait and
+    nothing needs re-locking between them.
+  - **`tourConfirmExit()` no longer calls `goHome()`** — it used to (landing on
+    `#scHome`), now it has its own inline transition to `#scMenu` instead, so
+    `goHome()` itself is completely untouched and still only ever used by a plain
+    Classic match's Exit/Home. Fixing this uncovered a **real latent bug, now fixed as
+    a side effect**: `tourConfirmExit()` is wired as `tourBackBtn`'s handler from
+    *two* different active screens — from `#scGame` (mid-match, via `btnExit`/
+    `homeBtn` in `tourLaunchMatch()`) **and** from `#scTournament`'s own bracket step
+    once `tour.qi>0` (the "Exit" nav button, `renderBracket()`) — the old
+    `goHome()`-based version only ever removed `.on` from `#scGame`, so calling it
+    from the bracket screen left `#scTournament` still `.on` while also adding `.on`
+    to the destination, i.e. two screens visible at once. The new inline transition
+    removes `.on` from **both** `#scGame` and `#scTournament` before adding it to
+    `#scMenu` (removing an absent class is a harmless no-op for whichever of the two
+    wasn't actually active), correctly covering both call sites.
+- **Onboarding, splash, tournament wizard steps, and all `#scGame` mechanics are
+  untouched** by this restructuring — see their own sections. Onboarding's overlay now
+  sits on top of `#scMenu` at launch instead of `#scHome` (see "Onboarding" above),
+  purely because `#scMenu` is now the initial screen, not because onboarding itself
+  changed.
+
 ## Module layout (post-split)
 
 - `index.html` — markup only (home screen + game screen), links `styles.css` and loads
@@ -448,6 +801,8 @@ ever reaches back to the single award that just happened, never further.
 - `i18n.js` — the `T` dictionary (Arabic/English UI strings) only. Letter alphabets
   (`AR`/`EN` in `game.js`) are gameplay data, not UI copy, and intentionally live in
   `game.js` instead.
+- `onboarding.js` — the first-launch-only language-pick + how-to-play overlay, see
+  "Onboarding" above. Loads after `storage.js`/`game.js`/`i18n.js`, before `pwa.js`.
 - These are classic (non-module) scripts sharing one global scope by design — load
   order matters for values used at top-level, but function bodies (e.g. `drawBoard()`
   referencing `cfg`, or its click handler calling `pick()`) resolve at call time, after
@@ -541,9 +896,27 @@ an outer wrapper with its own separate toolchain (npm, Xcode).
 - **Everything past `npx cap open ios` requires an interactive Apple ID session in
   Xcode** and can't be scripted from here: selecting the Apple Developer Team for code
   signing, building to a simulator/device, archiving, and uploading to App Store
-  Connect. The service-worker/manifest PWA machinery (`sw.js`, `pwa.js`,
-  `manifest.json`) is inert inside Capacitor's `WKWebView` — harmless to leave in
-  `www/`, just does nothing there.
+  Connect.
+- **`sw.js` is *not* inert inside Capacitor's `WKWebView` — this was a wrong assumption
+  that caused a real bug, not a hypothetical.** `pwa.js` originally registered the
+  service worker unconditionally, and `navigator.serviceWorker` genuinely exists inside
+  a WKWebView too, so it actually installs and actively intercepts fetches there,
+  cache-first, same as in a browser. Confirmed as the cause of a real, reported "only
+  one board size works" bug: `npx cap run ios` overwrites the app bundle on redeploy
+  but does **not** wipe the app's own on-disk WebKit storage, so an old service worker
+  from an earlier test session on the same simulator can silently keep serving stale
+  `game.js`/`board.js` indefinitely — a plain reinstall never fixes it, only a full
+  quit-and-relaunch does (same "close the tab, don't just refresh" rule already
+  established for browser/PWA testing, just less obvious it applies to a native app
+  too). **Fixed at the source, not worked around**: `pwa.js` now checks
+  `window.Capacitor?.isNativePlatform?.()` and skips `serviceWorker.register()`
+  entirely when true — the service worker has zero purpose inside a native app anyway
+  (it's already fully bundled/offline), so this removes the risk rather than papering
+  over it. Still registers normally for real browser/PWA use (`isNativePlatform()`
+  correctly returns `false` there). **If a future code change ever looks correct in
+  source but doesn't show up after a native redeploy, suspect a stale service-worker
+  cache first** — this class of bug is easy to misdiagnose as "my change didn't take
+  effect" or "only X works" when the actual files on disk are already correct.
 - **Privacy policy page exists (`privacy.html`, project root), but isn't hosted
   anywhere yet — that's the one remaining piece before App Store submission.** Apple
   requires a public URL for every listing, even though this app collects no data and
@@ -590,14 +963,20 @@ an outer wrapper with its own separate toolchain (npm, Xcode).
     gets added (e.g. a future Xcode upgrade migrating to build-setting-driven
     Info.plist generation), the orientation lists need to move there instead.
 - **`orientation.js` (new module) + `vendor/`** — `lockPortrait()`/`lockLandscape()`,
-  called at every screen transition: `lockPortrait()` on initial load (home is always
-  the start screen), in `goHome()` (`game.js`), and in `tourBack()`'s exit-to-home
-  path and `tourFinishTournament()` (`tournament.js`); `lockLandscape()` in
-  `startBtn.onclick` and `tourOpen()`/`tourLaunchMatch()`/`tourReturnToBracket()`.
-  `tourConfirmExit()` needs no separate call since it already routes through
-  `goHome()`. Both helpers are no-ops wrapped in try/catch — safe to call from a
-  plain browser (no native platform) or if the plugin bridge isn't present for any
-  reason; never let an orientation call be able to break navigation.
+  called at every screen transition that actually crosses into/out of a
+  landscape-locked screen: `lockPortrait()` on initial load (`#scMenu` is always the
+  start screen — see "Landing menu" below), in `goHome()` (`game.js`, used by a plain
+  Classic match's Exit/Home, returns to `#scHome`), and in `tourBack()`'s exit-to-menu
+  path, `tourFinishTournament()`, and `tourConfirmExit()` (all three in
+  `tournament.js`, all return to `#scMenu`); `lockLandscape()` in `startBtn.onclick`
+  and `tourOpen()`/`tourLaunchMatch()`/`tourReturnToBracket()`. **`classicBtn`/
+  `homeBackBtn`'s `#scMenu`↔`#scHome` transition (`game.js`) deliberately makes no
+  orientation call at all** — both screens are portrait, and the device is already
+  portrait-locked from initial load, so there's nothing to re-lock; only look for a
+  missing orientation call here if that ever stops being true (e.g. either screen
+  ever needs landscape). Both helpers are no-ops wrapped in try/catch — safe to call
+  from a plain browser (no native platform) or if the plugin bridge isn't present for
+  any reason; never let an orientation call be able to break navigation.
   - `lockPortrait()`/`lockLandscape()` also toggle the native status bar now
     (`setStatusBarHidden(false)`/`(true)`, `@capacitor/status-bar`) — hidden on every
     landscape screen (game + tournament), shown again on the portrait home screen.
@@ -619,7 +998,8 @@ an outer wrapper with its own separate toolchain (npm, Xcode).
     added because the game board must never present in portrait on *any* device,
     iPad included, and a single lock-on-entry call plus an already-declared
     four-orientation iPad `Info.plist` is a combination worth reinforcing rather than
-    trusting blindly. **Deliberately scoped to `#scGame` only** — menu (`#scHome`) and
+    trusting blindly. **Deliberately scoped to `#scGame` only** — the landing menu
+    (`#scMenu`), Classic setup (`#scHome`), and
     tournament setup/bracket (`#scTournament`) screens get no equivalent listener, so
     don't add one for them without being asked; their existing single lock-on-transition
     calls are untouched and still the only orientation handling those screens get.
@@ -861,6 +1241,144 @@ render functions after loading.
   field only lives in an `<input>`/`<textarea>` (not reflected through one of the
   existing apply* functions), it needs the same explicit sync — don't assume
   `loadSettings()` alone makes the UI match `cfg`.
+- **The onboarding "seen" flag (`hexletters:v1:onboarded`) is a deliberately separate
+  key from the settings blob**, not a field inside `hexletters:v1:settings` — see
+  "Onboarding" below. `hasOnboarded()`/`markOnboarded()` (`storage.js`) are its only
+  reader/writer.
+
+## Onboarding (`onboarding.js`, first launch only)
+
+A two-page overlay (`#obOverlay`, direct child of `<body>`, `position:fixed;z-index:500`
+so it sits above every screen including the splash's fade-out) shown once, ever, on the
+very first app launch — never again after, on any subsequent launch, once dismissed.
+
+- **Page 1 (`#obPageLang`)** — language pick. Two buttons, hardcoded "عربي"/"English"
+  (language names in their own script, not translated — same precedent as `segLang`'s
+  own static `عربي`/`EN` button labels). A bilingual heading ("اختر اللغة" / "Choose
+  your language") shows both languages at once, since no language is selected yet at
+  this point to drive `L()`.
+- **Page 2 (`#obPageRules`)** — "How to Play" rules, rendered in whichever language was
+  just picked, via the existing `T`/`L()` i18n system (`obTitle`/`obRules`/`obTip`/
+  `obStart` keys, both languages, `i18n.js`). `obRules` is an array of strings (one
+  `<li>` each, following the `roundOrdinals` array-field precedent already in `T`) —
+  the one English rule with an inline `<b>ANSWER</b>` emphasis is set via `innerHTML`,
+  same as the round-log's existing `<b>`-mixing pattern in `sync()`'s `hist.innerHTML`;
+  safe here since these are static, developer-authored strings, never user input.
+- **`pickOnboardLang(lang)`** (called from each page-1 button's `onclick`) sets
+  `cfg.lang`, calls `paintSel();applyLang();persistSettings()` — the exact same calls
+  `segLang.onclick` already makes — so the language choice takes effect app-wide
+  immediately (home screen behind the overlay re-renders in the picked language too),
+  then renders and reveals page 2 in that language.
+- **`obStartBtn`'s click** is the *only* dismiss path: calls `markOnboarded()` then
+  removes `.show` from `#obOverlay`. There is no back button from page 2 to page 1 and
+  no other way to close the overlay — not asked for, don't add one speculatively.
+- **Deliberately outside any `.screen`** (unlike `#qbOverlay`, which lives nested
+  inside `#scMenu` — see "Landing menu" below) — this means it isn't tied to which
+  `.screen` happens to be `.on`, though in practice it only ever shows at launch,
+  while `#scMenu` is already the active screen (the initial state).
+- **Storage is a separate key** (`hexletters:v1:onboarded`, `storage.js`), not folded
+  into the versioned settings blob (`hexletters:v1:settings`) that already precisely
+  documents what it holds (see "Persistence" above) — keeping this flag separate avoids
+  having to touch that blob's carefully-scoped shape for an unrelated one-time flag.
+  `hasOnboarded()`/`markOnboarded()` are its only reader/writer. Checked once, at
+  `onboarding.js`'s own top-level (script-parse time, synchronous, before first paint —
+  same "no flash of the wrong state" reasoning already established for `storage.js`'s
+  own init) — `if(!hasOnboarded())` is the sole gate that ever adds `#obOverlay`'s
+  `.show` class; nothing else in the app can trigger onboarding to reappear once the
+  flag is set, satisfying "never block the app after first run" structurally rather
+  than via a runtime check scattered elsewhere.
+- **Load order**: `onboarding.js` loads after `storage.js` (needs `hasOnboarded`/
+  `markOnboarded`) and after `game.js`/`i18n.js` (needs `cfg`/`L`/`paintSel`/
+  `applyLang`/`persistSettings`/`T`), before `pwa.js`. `sw.js`'s `ASSETS` and
+  `package.json`'s `sync-web` script both include it — same "must be listed or offline/
+  native breaks" rule as every other runtime file (see "PWA files" below).
+- **RTL/LTR**: no special handling needed beyond what already exists — picking a
+  language calls `applyLang()`, which flips `document.documentElement.dir` globally
+  exactly as it always does, and the overlay's own CSS uses logical properties
+  (`padding-inline-start`, `text-align:start`) for the rules list so it flips
+  correctly with no onboarding-specific RTL code.
+- Doesn't touch game logic, `board.js`, or `game.js`'s state/round/win-detection code
+  at all — purely an additive first-run UI layer.
+- **Card width is responsive, wider on iPad than iPhone, via a plain CSS width
+  breakpoint — no JS/device detection**, consistent with this project's existing
+  no-device-sniffing precedent (see `orientation.js`'s own "no device detection" rule
+  under "Orientation is per-screen"). Base `.obCard` (inherits `.card`'s
+  `max-width:460px`) is sized right for iPhone; `@media (min-width:600px){ .obCard{
+  max-width:min(680px,65vw); ...} }` overrides it for wider viewports. **600px is a
+  deliberate gap, not a tuned-to-one-device number**: iPhone's widest current portrait
+  CSS width (17 Pro Max) is ~430px, the narrowest iPad's portrait width (mini) is
+  ~744px — 600px sits with comfortable margin on both sides, so this doesn't need
+  updating for future device sizes within that range. Onboarding only ever shows on
+  the portrait-locked home screen (see `lockPortrait()` in "Orientation is per-screen"
+  below), so a plain width query is sufficient — no `orientation:portrait` qualifier
+  needed, since iPhone never presents a ≥600px-wide viewport while onboarding could be
+  showing, and an iPad is still an iPad (still deserves the wider card) even in the
+  brief window before `lockPortrait()`'s native call takes hold on launch.
+  `min(680px,65vw)` means the fixed 680px only applies on larger iPads (13": ~1024px
+  portrait width → 65vw would exceed it, so 680px wins); smaller iPads (A16 10.9":
+  ~820px → 65vw≈533px) get a proportionally narrower card via the `65vw` branch
+  instead — **both branches are intentional, "whichever is smaller" is the point, not
+  a bug** — don't simplify this back down to a single fixed value. Text sizes
+  (`.obTitle`/`.obLangHead`/`.obRules li`/`.obTip`) and the dismiss/language buttons
+  (`.obCard .solid`, scoped so it doesn't leak into `.solid`'s other users like
+  `#qbCard`'s button) all get larger `clamp()` floors inside the same media query, so
+  the wider card doesn't read as a small dialog with oversized empty margins — iPhone
+  is completely unaffected since none of these rules exist outside the `min-width:600px`
+  query.
+
+## Shared confirm modal (`showConfirm()`, `game.js`)
+
+A styled in-app Yes/Cancel dialog (`#confirmOverlay`/`#confirmCard`, same shell as
+`#qbOverlay`/onboarding's cards — dark `.card`, `.acts`/`.solid` buttons) replacing
+the native `confirm()` this app used to call for two warnings. **Native `confirm()`
+renders as a bare system/browser dialog inside a WKWebView — it doesn't match the
+app's own chrome at all** — that mismatch is exactly why this exists; don't
+reintroduce a raw `confirm()` call for a new warning without considering this
+component first.
+
+- **One shared component, not two** — same "one overlay handles every trigger"
+  precedent as `#qbOverlay` (see "Coming soon" below): `showConfirm(message,
+  onConfirm)` sets `#confirmMsg`'s text and shows the overlay; `onConfirm` fires only
+  if the Yes button (`#confirmYesBtn`) is clicked, nothing happens on Cancel
+  (`#confirmCancelBtn`) beyond hiding the overlay — the exact same "confirm proceeds,
+  cancel aborts, nothing else happens" contract `confirm()` had. Button labels are
+  **generic across every use** (`t.confirmYes`/`t.confirmCancel`, "نعم"/"إلغاء"), not
+  reworded per call site — same reasoning as `#qbClose`'s label being generic across
+  Question Bank/Online: keeps the component simple, and the message text itself
+  already carries the specific question (`sizeConfirm`'s own text ends in "موافق؟").
+  Don't add a per-call-site label override without a real need for one.
+- **`confirmPending` (module-level `let` in `game.js`) is the async bridge** — since
+  `confirm()` is synchronous (blocks until answered) and a DOM-driven modal isn't,
+  every call site that used to do `if(!confirm(msg))return; ...rest`
+  now does `showConfirm(msg,()=>{ ...rest... }); return;` — the "rest" of the
+  original logic moves *inside* the callback, only ever running after a real Yes
+  click. `confirmYesBtn.onclick` reads and clears `confirmPending` before invoking it
+  (clear-before-call, not after, so a callback that itself triggers another
+  `showConfirm()` — none currently do, but this is defensive — can't have its own
+  pending state wiped by the outer call's own cleanup).
+- **Current call sites** (all in this exact callback-wrapping shape):
+  `segSize.onclick` (`game.js`) and `tourBoardSizeSeg`'s button handler
+  (`tournament.js`) both use `sizeConfirm`, gating the Large+mixed-letters interlock
+  (see "Board size" above — the interlock's *logic* is unchanged, only how the
+  confirmation is presented). `tourConfirmExit()` (`tournament.js`) uses
+  `tourExitConfirm` — its whole body (reset + screen transition + orientation lock)
+  now lives inside the `onConfirm` callback; the function itself has no synchronous
+  return value anymore, which is safe because every caller (`btnExit`/`homeBtn`
+  during a tournament match, `tourBackBtn` on the bracket step once `tour.qi>0`) is a
+  plain `onclick` assignment that never used its return value anyway.
+- **`#confirmOverlay` lives outside every `.screen`** (body-level sibling, same
+  reasoning as `#obOverlay` — see "Onboarding" above), `position:fixed;z-index:600`
+  (above `#obOverlay`'s `500`, defensively — the two are never actually shown
+  simultaneously in practice, since `sizeConfirm`/`tourExitConfirm` only ever trigger
+  after onboarding is long dismissed) — this lets it show correctly regardless of
+  which of `#scMenu`/`#scHome`/`#scTournament`/`#scGame` happens to be active when a
+  call site fires it, same "must not be hidden by a `display:none` ancestor" concern
+  already documented for `#qbOverlay`'s move to `#scMenu`.
+- **RTL/i18n need no special handling** — `.card`'s existing `text-align:center` and
+  `.acts`'s flex layout already flip correctly with `dir` (same mechanism every other
+  two-button `.acts` row in this app already relies on, e.g. `#qbCard`'s single-button
+  version and the tournament nav's Back/Next pair) — `.confirmMsg` (new class,
+  `styles.css`) only adds size/weight/color, no direction-specific rules.
 
 ## Coming soon (Question Bank, 1v1 Online)
 
@@ -911,6 +1429,35 @@ size/rounds/draw pages) after it felt too slow to click through:
   `.tourReveal` CSS animation (`renderBracket(true)` — the `animate` param is only
   passed `true` right after `tourDoDraw()`; every other call, e.g. returning from a
   played match, renders instantly with no replay).
+
+- **`config`/`setup` are portrait on iPhone, landscape on iPad; `bracket` is
+  landscape on both** — the first device-conditional orientation logic in this
+  codebase (everywhere else, per "Orientation is per-screen" above, `orientation.js`
+  deliberately has zero device detection). `isPhoneSize()` (`orientation.js`) is a
+  screen-size heuristic, not a real device-model check —
+  `Math.min(screen.width,screen.height)<600` — reusing the exact threshold this app
+  already trusts for the onboarding card's iPad-widening CSS (`styles.css`,
+  `min-width:600px`). Only **two** call sites needed to change:
+  - `tourOpen()` — was an unconditional `lockLandscape()`; now
+    `isPhoneSize()?lockPortrait():lockLandscape()`, since this is the entry point
+    into `config`.
+  - `tourDoDraw()` — the `setup`→`bracket` transition; added an unconditional
+    `lockLandscape()` here (harmless no-op on iPad, which is already landscape;
+    necessary on iPhone, which was just in portrait for `config`/`setup`).
+  - **No other call site needed a change.** `tourNext()` (the *only* path used for
+    `config`→`setup`) calls no orientation function at all, and correctly doesn't
+    need to — that transition is portrait→portrait on iPhone and landscape→landscape
+    on iPad either way. `tourBack()`'s `i===0` case (exit to `#scMenu`), `renderSetup`'s
+    own back-to-`config` (also routes through the generic `tourBack()`),
+    `tourFinishTournament()`, `tourConfirmExit()`, `tourReturnToBracket()`, and
+    `tourLaunchMatch()` were all already correct for this new behavior without any
+    edit — trace through each before assuming a new one needs the same treatment.
+  - **Why this was low-risk despite being a genuinely new category of logic**: `config`/
+    `setup`'s markup already uses the same portrait-shaped `.home`/`.home-in` wrapper
+    the landing menu and Classic setup page use (`#scTournament`'s own HTML, not the
+    game screen's landscape-specific `.wrap`/`.panel`/`.stage` grid) — so this wasn't a
+    layout rebuild, just relocking orientation at the two points above. If `config`/
+    `setup`'s CSS is ever changed to something landscape-specific, revisit this.
 
 - Team count is fixed to **4, 8, or 16** (`tour.size`) — always a power of 2, since the
   bracket is a straightforward single-elimination tree with no byes to handle. Don't
@@ -1067,11 +1614,19 @@ This already bit the per-cell letter `<text>` elements in `drawBoard()`: they we
 originally ided `t0`..`t24`, which collided with the team score panels' `id="t1"`/
 `id="t2"` (cell indices 1 and 2) as soon as the board was drawn. That broke
 `newMatch()` (called by the Start Game button) and made the game screen unreachable.
-Fixed by renaming the per-cell letter ids to `lt0`..`lt24`. Per-cell polygon ids
-(`h0`..`h24`) don't collide with anything static, so they were left as-is.
-**Before adding or renaming any static id in `index.html`, or any generated id in
-`board.js`, check for collisions against both the other set and the full static id
-list.**
+Fixed by renaming the per-cell letter ids to `lt{i}`. Per-cell polygon ids (`h{i}`)
+don't collide with anything static, so they were left as-is. (The team score panels
+that originally caused this are gone now — removed entirely, see "Sidebar has no team
+cards" above — but the fix and the general risk it represents both stand.)
+**The range of `i` is no longer fixed at 0..24** — board size is now selectable
+(Mini 3×3 through Large 6×6, see "Board size" above), so generated ids run `h0`..`h{n²-1}`/
+`lt0`..`lt{n²-1}` for whichever size is active, up to `h35`/`lt35` for Large. Checked
+against the current static id list (`index.html`) at every size up to 36 — no
+collisions (`b1`/`b2`/`name1`/`name2`/`sw1`/`sw2`/`w1`/`w2` are the only numeric-suffixed
+static ids, none share the `h`/`lt` prefixes). **Before adding or renaming any static
+id in `index.html`, or any generated id in `board.js`, check for collisions against
+both the other set and the full static id list — and re-check up to at least `35`, not
+just `24`, now that board size varies.**
 
 ## Non-goals (for now)
 
